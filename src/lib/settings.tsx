@@ -12,6 +12,7 @@ export const DEFAULT_SETTINGS: Settings = {
   historyStartYear: 2015,
   matchThreshold: 60,
   yearPlaces: {},
+  periods: [],
 }
 
 function load(): Settings {
@@ -19,7 +20,12 @@ function load(): Settings {
     const raw = localStorage.getItem(KEY)
     if (!raw) return DEFAULT_SETTINGS
     const parsed = JSON.parse(raw) as Partial<Settings>
-    return { ...DEFAULT_SETTINGS, ...parsed, yearPlaces: parsed.yearPlaces ?? {} }
+    return {
+      ...DEFAULT_SETTINGS,
+      ...parsed,
+      yearPlaces: parsed.yearPlaces ?? {},
+      periods: parsed.periods ?? [],
+    }
   } catch {
     return DEFAULT_SETTINGS
   }
@@ -29,6 +35,8 @@ interface Ctx {
   settings: Settings
   update: (patch: Partial<Settings>) => void
   setYearPlace: (year: number, place: Place | null) => void
+  addPeriod: (from: string, to: string, place: Place) => void
+  removePeriod: (id: string) => void
   reset: () => void
 }
 
@@ -52,6 +60,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           else delete next[String(year)]
           return { ...prev, yearPlaces: next }
         }),
+      addPeriod: (from, to, place) =>
+        setSettings((prev) => ({
+          ...prev,
+          periods: [
+            ...(prev.periods ?? []),
+            { id: from + '-' + to + '-' + Date.now().toString(36), from, to, place },
+          ].sort((a, b) => (a.from < b.from ? -1 : 1)),
+        })),
+      removePeriod: (id) =>
+        setSettings((prev) => ({ ...prev, periods: (prev.periods ?? []).filter((p) => p.id !== id) })),
       reset: () => setSettings(DEFAULT_SETTINGS),
     }),
     [settings],

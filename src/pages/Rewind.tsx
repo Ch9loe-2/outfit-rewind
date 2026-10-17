@@ -4,7 +4,7 @@ import { db } from '../lib/db'
 import type { DayRow, WeatherRow } from '../lib/db'
 import { ensureWeather, locKeyOf } from '../lib/archive'
 import { readLastWeather } from '../lib/lastWeather'
-import { resolvePlace } from '../lib/places'
+import { placeOf, resolvePlace } from '../lib/places'
 import { match, toFeature, todayInput } from '../lib/similarity'
 import type { MatchResult } from '../lib/similarity'
 import { useSettings } from '../lib/settings'
@@ -29,6 +29,8 @@ export default function Rewind() {
   const [syncing, setSyncing] = useState(false)
   const [year, setYear] = useState<'all' | number>('all')
   const [threshold, setThreshold] = useState(settings.matchThreshold)
+  const [view, setView] = useState<'score' | 'time'>('score')
+  const [onlyFav, setOnlyFav] = useState(false)
   const autoSynced = useRef(false)
 
   const load = useCallback(async () => {
@@ -76,9 +78,14 @@ export default function Rewind() {
   async function syncWeather() {
     setSyncing(true)
     const days = await db.days.toArray()
+    // 和展示用同一套解析：照片坐标 > 时间段 > 年份 > 推断 > 常驻
+    const byDate = new Map(days.map((day) => [day.date, placeOf(day, settings)]))
     await ensureWeather(
       days.map((d) => ({ date: d.date, lat: d.lat, lon: d.lon })),
-      (day) => resolvePlace(day as DayRow, settings),
+      (day) => {
+        const place = byDate.get(day.date)
+        return place ? { lat: place.lat, lon: place.lon } : null
+      },
     )
     await load()
     setSyncing(false)
@@ -91,12 +98,30 @@ export default function Rewind() {
   }, [rows])
 
   const visible = useMemo(() => {
-    return rows.filter((row) => {
+    const list = rows.filter((row) => {
       if (year !== 'all' && row.day.year !== year) return false
-      if (row.result && row.result.score < threshold) return false
+      if (onlyFav && row.day.favorite !== 1) return false
+      if (view === 'score' && row.result && row.result.score < threshold) return false
       return true
     })
-  }, [rows, year, threshold])
+    if (view === 'time') {
+      return list.slice().sort((a, b) => (a.day.date < b.day.date ? 1 : -1))
+    }
+    return list
+  }, [rows, year, threshold, onlyFav, view])
+
+  // 注意：所有 hook 必须在这之前调用（下面有两个提前 return）
+  const groups = useMemo(() => {
+    const map = new Map<number, Row[]>()
+    for (const row of visible) {
+      const list = map.get(row.day.year)
+      if (list) list.push(row)
+      else map.set(row.day.year, [row])
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => b[0] - a[0])
+      .map(([groupYear, list]) => ({ year: groupYear, list }))
+  }, [visible])
 
   const missing = rows.filter((row) => !row.weather).length
 
@@ -143,17 +168,58 @@ export default function Rewind() {
     )
   }
 
+  const favCount = rows.filter((row) => row.day.favorite === 1).length
+
+  function renderRow({ day, weather, result }: Row) {
+    return (
+      <Link className="list-row" key={day.date} to={'/day/' + day.date}>
+        <Thumb id={day.heroPhotoId} />
+        <div className="list-body">
+          <div className="list-title">
+            <span>
+              {day.date}
+              {day.favorite === 1 ? <span className="fav-mark">♥</span> : null}
+            </span>
+            <span className="muted small">{day.photoCount} 张</span>
+          </div>
+          <div className="muted small">
+            {weather
+              ? icon(weather.weatherCode) + ' ' + describe(weather.weatherCode) + ' · ' + Math.round(weather.tMin) + '~' + Math.round(weather.tMax) + '° · 风 ' + windLevel(weather.windMax) + ' 级'
+              : '天气待补齐'}
+          </div>
+        </div>
+        {view === 'score' ? (
+          result ? (
+            <span className={result.score >= 80 ? 'score score-high' : 'score'}>{result.score}</span>
+          ) : (
+            <span className="score score-empty">—</span>
+          )
+        ) : null}
+      </Link>
+    )
+  }
+
   return (
     <div className="page">
       <header className="topbar">
         <div>
           <div className="place">回忆</div>
-          <div className="date">{rows.length} 个穿搭日 · {settings.historyStartYear} 年起</div>
+          <div className="date">
+            {rows.length} 个穿搭日 · {favCount} 个收藏
+          </div>
         </div>
         <Link className="icon-btn" to="/import" aria-label="导入">＋</Link>
       </header>
 
       <div className="filters">
+        <div className="view-switch">
+          <button className={view === 'score' ? 'view-btn view-btn-active' : 'view-btn'} onClick={() => setView('score')}>
+            按相似度
+          </button>
+          <button className={view === 'time' ? 'view-btn view-btn-active' : 'view-btn'} onClick={() => setView('time')}>
+            时间轴
+          </button>
+        </div>
         <select
           className="input input-compact"
           value={String(year)}
@@ -164,13 +230,26 @@ export default function Rewind() {
             <option key={item} value={item}>{item} 年</option>
           ))}
         </select>
-        <select className="input input-compact" value={threshold} onChange={(event) => setThreshold(Number(event.target.value))}>
-          <option value={0}>全部相似度</option>
-          <option value={60}>≥ 60</option>
-          <option value={70}>≥ 70</option>
-          <option value={80}>≥ 80</option>
-          <option value={90}>≥ 90</option>
-        </select>
+      </div>
+
+      <div className="filters">
+        {view === 'score' ? (
+          <select className="input input-compact" value={threshold} onChange={(event) => setThreshold(Number(event.target.value))}>
+            <option value={0}>全部相似度</option>
+            <option value={60}>≥ 60</option>
+            <option value={70}>≥ 70</option>
+            <option value={80}>≥ 80</option>
+            <option value={90}>≥ 90</option>
+          </select>
+        ) : (
+          <div className="spacer" />
+        )}
+        <button
+          className={onlyFav ? 'chip chip-active' : 'chip'}
+          onClick={() => setOnlyFav((prev) => !prev)}
+        >
+          {onlyFav ? '♥ 只看收藏' : '♡ 只看收藏'}
+        </button>
       </div>
 
       {missing > 0 ? (
@@ -182,34 +261,25 @@ export default function Rewind() {
         </div>
       ) : null}
 
-      <div className="list">
-        {visible.map(({ day, weather, result }) => (
-          <Link className="list-row" key={day.date} to={'/day/' + day.date}>
-            <Thumb id={day.heroPhotoId} />
-            <div className="list-body">
-              <div className="list-title">
-                <span>{day.date}</span>
-                <span className="muted small">{day.photoCount} 张</span>
-              </div>
-              <div className="muted small">
-                {weather
-                  ? icon(weather.weatherCode) + ' ' + describe(weather.weatherCode) + ' · ' + Math.round(weather.tMin) + '~' + Math.round(weather.tMax) + '° · 风 ' + windLevel(weather.windMax) + ' 级'
-                  : '天气待补齐'}
-              </div>
-            </div>
-            {result ? (
-              <span className={result.score >= 80 ? 'score score-high' : 'score'}>{result.score}</span>
-            ) : (
-              <span className="score score-empty">—</span>
-            )}
-          </Link>
-        ))}
-      </div>
+      {view === 'score' ? (
+        <div className="list">{visible.map(renderRow)}</div>
+      ) : (
+        groups.map((group) => (
+          <div key={group.year}>
+            <div className="year-head">{group.year} 年</div>
+            <div className="list">{group.list.map(renderRow)}</div>
+          </div>
+        ))
+      )}
+
+      {!visible.length ? (
+        <p className="muted small center">
+          {onlyFav ? '还没有收藏。点进某一天，按右上角的 ♡ 收藏。' : '这个筛选下没有结果，放宽一点试试。'}
+        </p>
+      ) : null}
 
       <p className="muted small center">
-        {visible.length === rows.length
-          ? '共 ' + rows.length + ' 天'
-          : '显示 ' + visible.length + ' / ' + rows.length + ' 天'}
+        {visible.length === rows.length ? '共 ' + rows.length + ' 天' : '显示 ' + visible.length + ' / ' + rows.length + ' 天'}
       </p>
 
       <footer className="foot">只比对本机照片，不上传</footer>

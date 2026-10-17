@@ -4,7 +4,7 @@ import { db } from '../lib/db'
 import { ensureWeather } from '../lib/archive'
 import { importFiles } from '../lib/importer'
 import type { ImportProgress, ImportResult } from '../lib/importer'
-import { resolvePlace } from '../lib/places'
+import { placeOf } from '../lib/places'
 import { useSettings } from '../lib/settings'
 
 type Phase = 'idle' | 'running' | 'done'
@@ -35,9 +35,13 @@ export default function ImportPage() {
 
       const days = await db.days.toArray()
       setWeatherNote('正在补齐历史天气…')
+      const byDate = new Map(days.map((day) => [day.date, placeOf(day, settings)]))
       const synced = await ensureWeather(
         days.map((d) => ({ date: d.date, lat: d.lat, lon: d.lon })),
-        (day) => resolvePlace({ ...day, year: Number(day.date.slice(0, 4)), month: '', photoIds: [], heroPhotoId: '', photoCount: 0, createdAt: 0 }, settings),
+        (day) => {
+          const place = byDate.get(day.date)
+          return place ? { lat: place.lat, lon: place.lon } : null
+        },
       )
       setWeatherNote(
         synced.years > 0

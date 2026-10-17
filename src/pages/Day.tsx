@@ -30,6 +30,7 @@ export default function Day() {
   const [hero, setHero] = useState<string | undefined>(undefined)
   const [today, setToday] = useState<DailyWeather | null>(null)
   const [loading, setLoading] = useState(true)
+  const [fav, setFav] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -43,6 +44,7 @@ export default function Day() {
         return
       }
       setDay(row)
+      setFav(row.favorite === 1)
       setHero(row.heroPhotoId)
       const list = await db.photos.bulkGet(row.photoIds)
       if (!alive) return
@@ -98,7 +100,20 @@ export default function Day() {
           <div className="place">{humanDate(day.date)}</div>
           <div className="date">{weekdayOf(day.date)} · {day.photoCount} 张照片</div>
         </div>
-        <Link className="icon-btn" to="/rewind" aria-label="返回">←</Link>
+        <div className="topbar-actions">
+          <button
+            className={fav ? 'icon-btn icon-btn-fav' : 'icon-btn'}
+            aria-label={fav ? '取消收藏' : '收藏这天'}
+            onClick={async () => {
+              const next = fav ? 0 : 1
+              setFav(!fav)
+              await db.days.update(day.date, { favorite: next as 0 | 1 })
+            }}
+          >
+            {fav ? '♥' : '♡'}
+          </button>
+          <Link className="icon-btn" to="/rewind" aria-label="返回">←</Link>
+        </div>
       </header>
 
       <div className="hero-photo">

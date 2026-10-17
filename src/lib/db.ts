@@ -29,6 +29,7 @@ export interface DayRow {
   band?: string
   /** exif：照片自带坐标；imputed：借用附近有坐标的那一天；none：都没有 */
   geoSource?: 'exif' | 'imputed' | 'none'
+  favorite?: 0 | 1
   createdAt: number
 }
 
@@ -68,6 +69,13 @@ class RewindDB extends Dexie {
     this.version(1).stores({
       photos: 'id, dayKey, takenAt',
       days: 'date, year, month',
+      weather: 'key, locYear',
+      thumbs: 'id',
+      meta: 'k',
+    })
+    this.version(2).stores({
+      photos: 'id, dayKey, takenAt',
+      days: 'date, year, month, favorite',
       weather: 'key, locYear',
       thumbs: 'id',
       meta: 'k',

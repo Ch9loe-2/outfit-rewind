@@ -42,6 +42,14 @@ export interface Place {
 
 export type Sensitivity = -1 | 0 | 1
 
+/** 一段时间在某个城市（旅行、出差、异地读书） */
+export interface Period {
+  id: string
+  from: string
+  to: string
+  place: Place
+}
+
 export interface Settings {
   mode: 'auto' | 'fixed'
   place: Place | null
@@ -50,4 +58,5 @@ export interface Settings {
   historyStartYear: number
   matchThreshold: number
   yearPlaces: Record<string, Place>
+  periods: Period[]
 }

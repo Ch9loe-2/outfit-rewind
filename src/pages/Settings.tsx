@@ -15,8 +15,10 @@ function yearsToNow(): number[] {
 }
 
 export default function SettingsPage() {
-  const { settings, update, setYearPlace, reset } = useSettings()
+  const { settings, update, setYearPlace, addPeriod, removePeriod, reset } = useSettings()
   const [targetYear, setTargetYear] = useState(new Date().getFullYear())
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
   const [stats, setStats] = useState<{ photos: number; days: number; mb: number } | null>(null)
   const [diag, setDiag] = useState<{
     exif: number
@@ -108,6 +110,39 @@ export default function SettingsPage() {
         <p className="muted small">
           定位被拒也能用：选一个城市后，首页会一直用它。iPhone 想让定位恢复，去「设置 → 隐私与安全性 → 定位服务 → Safari 网站」。
         </p>
+      </section>
+
+      <section className="card">
+        <h2>按时间段指定城市</h2>
+        <p className="muted small">
+          旅行、出差、异地读书：选一段时间 + 一个城市，这段时间里没定位的照片就按这个城市取天气。优先级高于「按年」。
+        </p>
+        <div className="two-col">
+          <input className="input" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
+          <input className="input" type="date" value={to} onChange={(event) => setTo(event.target.value)} />
+        </div>
+        {from && to && from > to ? <p className="muted small">开始日期要早于结束日期。</p> : null}
+        <CitySearch
+          placeholder={from && to ? '给 ' + from + ' ~ ' + to + ' 选城市' : '先选起止日期'}
+          onPick={(place) => {
+            if (!from || !to || from > to) return
+            addPeriod(from, to, place)
+            setFrom('')
+            setTo('')
+          }}
+        />
+        {(settings.periods ?? []).length ? (
+          <ul className="plain-list">
+            {settings.periods.map((period) => (
+              <li key={period.id}>
+                <span>
+                  {period.from} ~ {period.to} · {period.place.name}
+                </span>
+                <button className="link-btn" onClick={() => removePeriod(period.id)}>移除</button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </section>
 
       <section className="card">

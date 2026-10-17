@@ -107,26 +107,43 @@ export async function readPhotoMeta(file: File): Promise<PhotoMeta> {
   }
 }
 
+async function drawThumb(source: ImageBitmapSource, max: number): Promise<Blob | null> {
+  const bitmap = await createImageBitmap(source)
+  const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height))
+  const w = Math.max(1, Math.round(bitmap.width * scale))
+  const h = Math.max(1, Math.round(bitmap.height * scale))
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  ctx.drawImage(bitmap, 0, 0, w, h)
+  bitmap.close()
+  const webp = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob((b) => resolve(b), 'image/webp', 0.62)
+  })
+  if (webp) return webp
+  return await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.65))
+}
+
+function looksHeic(file: File): boolean {
+  return /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name)
+}
+
 export async function makeThumb(file: File, max = 200): Promise<Blob | null> {
   try {
-    const bitmap = await createImageBitmap(file)
-    const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height))
-    const w = Math.max(1, Math.round(bitmap.width * scale))
-    const h = Math.max(1, Math.round(bitmap.height * scale))
-    const canvas = document.createElement('canvas')
-    canvas.width = w
-    canvas.height = h
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return null
-    ctx.drawImage(bitmap, 0, 0, w, h)
-    bitmap.close()
-    const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob((b) => resolve(b), 'image/webp', 0.62)
-    })
-    if (blob) return blob
-    return await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.65))
+    return await drawThumb(file, max)
   } catch {
-    return null
+    // Safari 能直接解 HEIC，Chrome 不行：退回到 wasm 解码（按需加载）
+    if (!looksHeic(file)) return null
+    try {
+      const mod = await import('heic2any')
+      const converted = await mod.default({ blob: file, toType: 'image/jpeg', quality: 0.8 })
+      const single = Array.isArray(converted) ? converted[0] : converted
+      return await drawThumb(single, max)
+    } catch {
+      return null
+    }
   }
 }
 
