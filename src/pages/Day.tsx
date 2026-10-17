@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { db } from '../lib/db'
 import type { DayRow, PhotoRow, WeatherRow } from '../lib/db'
 import type { DailyWeather } from '../lib/types'
@@ -11,6 +11,7 @@ import { useSettings } from '../lib/settings'
 import { resolvePlace } from '../lib/places'
 import { useThumb } from '../lib/useThumb'
 import { describe, icon, windLevel } from '../lib/weather'
+import { deleteDay, moveDay } from '../lib/edit'
 
 function PhotoThumb({ id, active, onSelect }: { id: string; active: boolean; onSelect: (id: string) => void }) {
   const url = useThumb(id)
@@ -23,6 +24,7 @@ function PhotoThumb({ id, active, onSelect }: { id: string; active: boolean; onS
 
 export default function Day() {
   const { date } = useParams()
+  const navigate = useNavigate()
   const { settings } = useSettings()
   const [day, setDay] = useState<DayRow | null>(null)
   const [photos, setPhotos] = useState<PhotoRow[]>([])
@@ -31,6 +33,8 @@ export default function Day() {
   const [today, setToday] = useState<DailyWeather | null>(null)
   const [loading, setLoading] = useState(true)
   const [fav, setFav] = useState(false)
+  const [moveTo, setMoveTo] = useState('')
+  const [editing, setEditing] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -154,6 +158,54 @@ export default function Day() {
           <p className="muted">这个年份的天气可能还没同步，回回忆页刷新一下。</p>
         </section>
       )}
+
+      <section className="card">
+        <header className="card-head">
+          <h2>修补</h2>
+          <button className="link-btn" onClick={() => setEditing((prev) => !prev)}>
+            {editing ? '收起' : '展开'}
+          </button>
+        </header>
+        {editing ? (
+          <>
+            <p className="muted small">日期错了？把这一天的照片挪到正确的那天。搬过去会合并到目标日期。</p>
+            <div className="two-col">
+              <input
+                className="input"
+                type="date"
+                value={moveTo || day.date}
+                onChange={(event) => setMoveTo(event.target.value)}
+              />
+              <button
+                className="btn btn-ghost"
+                onClick={async () => {
+                  const target = moveTo || day.date
+                  if (target === day.date) return
+                  if (!confirm('把 ' + day.date + ' 的 ' + day.photoCount + ' 张照片挪到 ' + target + '？目标那天已有照片会合并。')) return
+                  await moveDay(day.date, target)
+                  navigate('/day/' + target)
+                }}
+              >
+                改日期
+              </button>
+            </div>
+            <div className="actions">
+              <button
+                className="btn btn-ghost danger"
+                onClick={async () => {
+                  if (!confirm('删除 ' + day.date + ' 这一天的 ' + day.photoCount + ' 张照片索引和缩略图？不可撤销。')) return
+                  await deleteDay(day.date)
+                  navigate('/rewind')
+                }}
+              >
+                删除这一天
+              </button>
+            </div>
+          </>
+        ) : (
+          <p className="muted small">支持改日期、删掉误导入的一天。</p>
+        )}
+      </section>
 
       {result ? (
         <section className="card">

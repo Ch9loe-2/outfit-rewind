@@ -940,6 +940,11 @@ body {
   letter-spacing: 0.03em;
 }
 
+.danger {
+  color: #d1495b;
+  border-color: rgba(209, 73, 91, 0.3);
+}
+
 .two-col {
   display: grid;
   grid-template-columns: 1fr 1fr;
