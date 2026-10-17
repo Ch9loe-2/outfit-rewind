@@ -114,7 +114,9 @@ export default function CitySearch({ onPick, placeholder }: Props) {
       ) : null}
       {empty ? (
         <p className="muted small">
-          {state === 'error' ? '联网搜索不可用，只能匹配内置城市表。' : '没有找到，换个写法试试（比如只输前两个字）。'}
+          {state === 'error'
+            ? '联网搜索被网络拦住了，只能用内置的 284 个城市。试试拼音（hangzhou / hz），或者换成附近的大城市。'
+            : '内置城市表里没有这个写法。试试拼音（hangzhou / hz），或者只输城市的前两个字。'}
         </p>
       ) : null}
     </div>
