@@ -175,7 +175,7 @@ export async function searchPlaces(query: string): Promise<GeoResult[]> {
     format: 'json',
   })
   const res = await fetch('https://geocoding-api.open-meteo.com/v1/search?' + params.toString())
-  if (!res.ok) return []
+  if (!res.ok) throw new Error('城市搜索失败：' + res.status)
   const data = (await res.json()) as { results?: GeoResult[] }
   return data.results ?? []
 }

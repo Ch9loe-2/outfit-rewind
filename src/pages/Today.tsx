@@ -121,12 +121,19 @@ export default function Today() {
       <header className="topbar">
         <div>
           <div className="place">{placeName}</div>
-          <div className="date">{notice ? notice + ' · ' : ''}{todayLabel()}</div>
+          <div className="date">{todayLabel()}</div>
         </div>
         <button className="icon-btn" onClick={() => void load()} aria-label="刷新">
           ↻
         </button>
       </header>
+
+      {notice ? (
+        <div className="banner">
+          <span>{notice}，当前显示「{placeName}」</span>
+          <Link className="link-btn" to="/settings">手动选城市</Link>
+        </div>
+      ) : null}
 
       {showWechatTip ? (
         <div className="banner">

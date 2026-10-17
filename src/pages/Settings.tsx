@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
+import CitySearch from '../components/CitySearch'
 import { useSettings } from '../lib/settings'
-import type { GeoResult } from '../lib/weather'
-import { searchPlaces } from '../lib/weather'
 import type { Sensitivity } from '../lib/types'
 import { clearAll, db, estimatedUsage } from '../lib/db'
 
@@ -16,10 +15,7 @@ function yearsToNow(): number[] {
 
 export default function SettingsPage() {
   const { settings, update, setYearPlace, reset } = useSettings()
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<GeoResult[]>([])
-  const [searching, setSearching] = useState(false)
-  const [target, setTarget] = useState<'home' | number>('home')
+  const [targetYear, setTargetYear] = useState(new Date().getFullYear())
   const [stats, setStats] = useState<{ photos: number; days: number; mb: number } | null>(null)
   const [diag, setDiag] = useState<{ exif: number; mtime: number; gps: number; years: number[] } | null>(null)
 
@@ -27,6 +23,13 @@ export default function SettingsPage() {
     void refreshStats()
     void refreshDiag()
   }, [])
+
+  async function refreshStats() {
+    const usage = await estimatedUsage()
+    if (usage) {
+      setStats({ photos: usage.photos, days: usage.days, mb: Math.round((usage.bytes / 1024 / 1024) * 10) / 10 })
+    }
+  }
 
   async function refreshDiag() {
     const photos = await db.photos.toArray()
@@ -38,44 +41,6 @@ export default function SettingsPage() {
       gps: photos.filter((p) => p.geoSource === 'exif').length,
       years,
     })
-  }
-
-  async function refreshStats() {
-    const usage = await estimatedUsage()
-    if (usage) {
-      setStats({ photos: usage.photos, days: usage.days, mb: Math.round((usage.bytes / 1024 / 1024) * 10) / 10 })
-    }
-  }
-
-  async function runSearch(value: string) {
-    setQuery(value)
-    if (value.trim().length < 2) {
-      setResults([])
-      return
-    }
-    setSearching(true)
-    try {
-      setResults(await searchPlaces(value))
-    } finally {
-      setSearching(false)
-    }
-  }
-
-  function choose(place: GeoResult) {
-    const value = {
-      name: place.name,
-      lat: place.latitude,
-      lon: place.longitude,
-      country: place.country,
-      admin: place.admin1,
-    }
-    if (target === 'home') {
-      update({ mode: 'fixed', place: value })
-    } else {
-      setYearPlace(target, value)
-    }
-    setResults([])
-    setQuery('')
   }
 
   const overrides = Object.entries(settings.yearPlaces).sort((a, b) => Number(b[0]) - Number(a[0]))
@@ -111,47 +76,28 @@ export default function SettingsPage() {
             {settings.place.admin ? ' · ' + settings.place.admin : ''}
           </p>
         ) : null}
+        <CitySearch placeholder="搜索城市，例如 杭州" onPick={(place) => update({ mode: 'fixed', place })} />
+        <p className="muted small">
+          定位被拒也能用：选一个城市后，首页会一直用它。iPhone 想让定位恢复，去「设置 → 隐私与安全性 → 定位服务 → Safari 网站」。
+        </p>
       </section>
 
       <section className="card">
         <h2>给某一年指定城市</h2>
-        <p className="muted small">
-          搬过家的话，早期的照片可能没有 GPS。指定年份后，那一年没有定位的照片会按这个城市取天气。
-        </p>
+        <p className="muted small">搬过家时，早期的照片可能没有 GPS。给那一年指定城市后，没定位的照片就按这个城市取天气。</p>
         <select
           className="input"
-          value={String(target)}
-          onChange={(event) => {
-            setTarget(event.target.value === 'home' ? 'home' : Number(event.target.value))
-            setResults([])
-            setQuery('')
-          }}
+          value={targetYear}
+          onChange={(event) => setTargetYear(Number(event.target.value))}
         >
-          <option value="home">用于：默认城市</option>
           {yearsToNow().map((year) => (
-            <option key={year} value={year}>用于：{year} 年</option>
+            <option key={year} value={year}>{year} 年</option>
           ))}
         </select>
-        <input
-          className="input"
-          placeholder={target === 'home' ? '搜索默认城市' : '搜索 ' + target + ' 年的城市'}
-          value={query}
-          onChange={(event) => void runSearch(event.target.value)}
+        <CitySearch
+          placeholder={'搜索 ' + targetYear + ' 年的城市'}
+          onPick={(place) => setYearPlace(targetYear, place)}
         />
-        {searching ? <p className="muted small">搜索中…</p> : null}
-        {results.length ? (
-          <ul className="result-list">
-            {results.map((item) => (
-              <li key={item.latitude + ':' + item.longitude}>
-                <button className="result" onClick={() => choose(item)}>
-                  <span>{item.name}</span>
-                  <span className="muted small">{[item.admin1, item.country].filter(Boolean).join(' · ')}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-
         {overrides.length ? (
           <ul className="plain-list">
             {overrides.map(([year, place]) => (
@@ -223,10 +169,6 @@ export default function SettingsPage() {
           <li>
             <span>覆盖年份</span>
             <span>{diag && diag.years.length ? diag.years[0] + '–' + diag.years[diag.years.length - 1] : '—'}</span>
-          </li>
-          <li>
-            <span>天气来源</span>
-            <span className="muted">Open-Meteo</span>
           </li>
         </ul>
         <div className="actions">

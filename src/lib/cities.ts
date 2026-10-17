@@ -1,0 +1,135 @@
+import type { Place } from './types'
+
+/**
+ * 离线城市表：网络被拦或 geocoding 超时时，手动选城市仍然可用。
+ * 坐标来自 Open-Meteo Geocoding，保留 4 位小数（约 10m，足够取天气）。
+ */
+export interface CityEntry extends Place {
+  admin: string
+}
+
+export const CITIES: CityEntry[] = [
+  { name: "三亚", admin: "海南", lat: 18.2543, lon: 109.5095 },
+  { name: "上海", admin: "上海市", lat: 31.2222, lon: 121.4581 },
+  { name: "上饶", admin: "江西", lat: 28.4518, lon: 117.9429 },
+  { name: "东京", admin: "江苏", lat: 32.2051, lon: 119.2865 },
+  { name: "东莞", admin: "广东", lat: 20.3001, lon: 109.99 },
+  { name: "中山", admin: "广东", lat: 22.5231, lon: 113.3791 },
+  { name: "临沂", admin: "山东", lat: 35.0631, lon: 118.3428 },
+  { name: "丽江", admin: "湖南", lat: 28.6243, lon: 113.8889 },
+  { name: "乌鲁木齐", admin: "新疆", lat: 43.801, lon: 87.6005 },
+  { name: "九江", admin: "贵州", lat: 28.1675, lon: 109.1277 },
+  { name: "伦敦", admin: "安大略", lat: 42.9834, lon: -81.233 },
+  { name: "佛山", admin: "云南", lat: 28.734, lon: 98.8061 },
+  { name: "保定", admin: "云南", lat: 22.0415, lon: 101.278 },
+  { name: "兰州", admin: "甘肃", lat: 36.057, lon: 103.8399 },
+  { name: "包头", admin: "内蒙古", lat: 40.6516, lon: 109.8439 },
+  { name: "北京", admin: "北京市", lat: 39.9075, lon: 116.3972 },
+  { name: "南京", admin: "江苏", lat: 32.0617, lon: 118.7778 },
+  { name: "南宁", admin: "广西", lat: 22.8167, lon: 108.3167 },
+  { name: "南昌", admin: "江西", lat: 28.684, lon: 115.8531 },
+  { name: "南通", admin: "江苏", lat: 32.0303, lon: 120.8747 },
+  { name: "南阳", admin: "甘肃", lat: 33.9571, lon: 104.6433 },
+  { name: "厦门", admin: "", lat: 24.48, lon: 118.089 },
+  { name: "台北", admin: "", lat: 25.033, lon: 121.565 },
+  { name: "台州", admin: "浙江", lat: 28.6627, lon: 121.4331 },
+  { name: "合肥", admin: "安徽", lat: 31.8639, lon: 117.2808 },
+  { name: "吉林", admin: "臺北市", lat: 25.0036, lon: 121.8877 },
+  { name: "呼和浩特", admin: "内蒙古", lat: 40.8106, lon: 111.6522 },
+  { name: "咸阳", admin: "陕西", lat: 34.3378, lon: 108.7026 },
+  { name: "哈尔滨", admin: "黑龙江", lat: 45.75, lon: 126.65 },
+  { name: "唐山", admin: "四川", lat: 30.4408, lon: 103.5231 },
+  { name: "嘉兴", admin: "浙江", lat: 30.7522, lon: 120.75 },
+  { name: "大庆", admin: "黑龙江", lat: 46.5833, lon: 125.0 },
+  { name: "大理", admin: "四川", lat: 28.6192, lon: 105.4038 },
+  { name: "大连", admin: "福建省", lat: 25.0924, lon: 116.6851 },
+  { name: "天津", admin: "天津市", lat: 39.1422, lon: 117.1767 },
+  { name: "太原", admin: "山西", lat: 37.8694, lon: 112.5603 },
+  { name: "宁波", admin: "浙江", lat: 29.8782, lon: 121.5494 },
+  { name: "安庆", admin: "江苏", lat: 32.0531, lon: 121.3773 },
+  { name: "宜昌", admin: "臺灣省 or 台灣省", lat: 23.9742, lon: 121.5806 },
+  { name: "岳阳", admin: "湖南", lat: 29.3678, lon: 113.1202 },
+  { name: "巴黎", admin: "法兰西岛", lat: 48.8534, lon: 2.3488 },
+  { name: "常州", admin: "", lat: 31.811, lon: 119.974 },
+  { name: "常德", admin: "湖南", lat: 29.0321, lon: 111.6984 },
+  { name: "广州", admin: "广东", lat: 23.1167, lon: 113.25 },
+  { name: "徐州", admin: "江苏", lat: 34.1805, lon: 117.1571 },
+  { name: "悉尼", admin: "新南威尔士州", lat: -33.8678, lon: 151.2073 },
+  { name: "惠州", admin: "广东", lat: 23.1115, lon: 114.4152 },
+  { name: "成都", admin: "四川", lat: 30.6667, lon: 104.0667 },
+  { name: "扬州", admin: "", lat: 32.394, lon: 119.413 },
+  { name: "拉萨", admin: "西藏", lat: 29.65, lon: 91.1 },
+  { name: "新乡", admin: "重庆市", lat: 30.5, lon: 108.2728 },
+  { name: "新加坡", admin: "", lat: 1.2897, lon: 103.8501 },
+  { name: "无锡", admin: "江苏", lat: 31.5689, lon: 120.2886 },
+  { name: "旧金山", admin: "加州", lat: 37.7749, lon: -122.4194 },
+  { name: "昆明", admin: "云南", lat: 25.0389, lon: 102.7183 },
+  { name: "曼谷", admin: "曼谷", lat: 13.754, lon: 100.5014 },
+  { name: "杭州", admin: "浙江", lat: 30.2936, lon: 120.1614 },
+  { name: "株洲", admin: "湖南", lat: 27.8333, lon: 113.15 },
+  { name: "桂林", admin: "安徽", lat: 29.922, lon: 118.468 },
+  { name: "武汉", admin: "湖北", lat: 30.5833, lon: 114.2667 },
+  { name: "汕头", admin: "", lat: 23.354, lon: 116.682 },
+  { name: "江门", admin: "四川", lat: 28.4452, lon: 105.334 },
+  { name: "沈阳", admin: "辽宁", lat: 41.7922, lon: 123.4328 },
+  { name: "泉州", admin: "", lat: 24.874, lon: 118.676 },
+  { name: "洛杉矶", admin: "加州", lat: 34.0522, lon: -118.2437 },
+  { name: "洛阳", admin: "福建省", lat: 24.9594, lon: 118.683 },
+  { name: "济南", admin: "山东", lat: 36.6683, lon: 116.9972 },
+  { name: "济宁", admin: "山东", lat: 35.405, lon: 116.5814 },
+  { name: "海口", admin: "云南", lat: 24.7798, lon: 102.5755 },
+  { name: "淄博", admin: "山东", lat: 36.7906, lon: 118.0633 },
+  { name: "淮安", admin: "福建省", lat: 26.0824, lon: 119.2447 },
+  { name: "深圳", admin: "广东", lat: 22.5455, lon: 114.0683 },
+  { name: "温州", admin: "", lat: 27.994, lon: 120.699 },
+  { name: "湖州", admin: "", lat: 30.894, lon: 120.087 },
+  { name: "湛江", admin: "", lat: 21.271, lon: 110.359 },
+  { name: "潍坊", admin: "山东", lat: 36.71, lon: 119.1019 },
+  { name: "澳门", admin: "", lat: 22.2006, lon: 113.5461 },
+  { name: "烟台", admin: "辽宁", lat: 40.609, lon: 122.6643 },
+  { name: "珠海", admin: "山东", lat: 35.8712, lon: 119.9964 },
+  { name: "盐城", admin: "江苏", lat: 33.3575, lon: 120.1573 },
+  { name: "石家庄", admin: "河北省", lat: 38.0414, lon: 114.4786 },
+  { name: "福州", admin: "福建省", lat: 26.0771, lon: 119.2915 },
+  { name: "纽约", admin: "", lat: 40.714, lon: -74.006 },
+  { name: "绍兴", admin: "四川", lat: 30.1757, lon: 105.073 },
+  { name: "绵阳", admin: "贵州", lat: 27.5385, lon: 106.439 },
+  { name: "肇庆", admin: "", lat: 23.047, lon: 112.465 },
+  { name: "芜湖", admin: "安徽", lat: 31.1463, lon: 118.5647 },
+  { name: "苏州", admin: "江苏", lat: 31.3041, lon: 120.5954 },
+  { name: "荆州", admin: "", lat: 30.335, lon: 112.241 },
+  { name: "蚌埠", admin: "安徽", lat: 32.9408, lon: 117.3608 },
+  { name: "衡阳", admin: "福建省", lat: 25.2249, lon: 117.9277 },
+  { name: "襄阳", admin: "湖北", lat: 32.0422, lon: 112.1448 },
+  { name: "西宁", admin: "青海", lat: 36.6255, lon: 101.7574 },
+  { name: "西安", admin: "陕西", lat: 34.2583, lon: 108.9286 },
+  { name: "许昌", admin: "", lat: 34.036, lon: 113.852 },
+  { name: "贵阳", admin: "贵州", lat: 26.5833, lon: 106.7167 },
+  { name: "赣州", admin: "江西", lat: 25.8466, lon: 114.9326 },
+  { name: "连云港", admin: "", lat: 34.597, lon: 119.222 },
+  { name: "郑州", admin: "河南", lat: 34.7578, lon: 113.6486 },
+  { name: "郴州", admin: "湖南", lat: 25.8, lon: 113.0333 },
+  { name: "重庆", admin: "重庆市", lat: 29.5603, lon: 106.5577 },
+  { name: "金华", admin: "浙江", lat: 29.1068, lon: 119.6442 },
+  { name: "银川", admin: "宁夏", lat: 38.4681, lon: 106.2731 },
+  { name: "长春", admin: "黑龙江", lat: 47.7319, lon: 125.6586 },
+  { name: "长沙", admin: "重庆市", lat: 31.0, lon: 108.3046 },
+  { name: "青岛", admin: "辽宁", lat: 39.3291, lon: 121.7328 },
+  { name: "首尔", admin: "", lat: 37.566, lon: 126.978 },
+  { name: "香港", admin: "", lat: 22.2783, lon: 114.1747 },
+  { name: "高雄", admin: "四川", lat: 31.3664, lon: 105.372 },
+]
+
+export function searchCities(query: string, limit = 8): CityEntry[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return []
+  const starts: CityEntry[] = []
+  const contains: CityEntry[] = []
+  for (const city of CITIES) {
+    const name = city.name.toLowerCase()
+    const admin = (city.admin || '').toLowerCase()
+    if (name.startsWith(q) || admin.startsWith(q)) starts.push(city)
+    else if (name.includes(q) || admin.includes(q)) contains.push(city)
+  }
+  return starts.concat(contains).slice(0, limit)
+}
