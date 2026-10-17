@@ -4,6 +4,8 @@ import Metric from '../components/Metric'
 import OutfitCard from '../components/OutfitCard'
 import { advise } from '../lib/outfit'
 import { currentPosition } from '../lib/location'
+import { saveLastWeather } from '../lib/lastWeather'
+import { db } from '../lib/db'
 import { useSettings } from '../lib/settings'
 import type { WeatherBundle } from '../lib/types'
 import { clock, describe, fetchWeather, icon, windLevel } from '../lib/weather'
@@ -21,6 +23,11 @@ export default function Today() {
   const [error, setError] = useState<string | null>(null)
   const [placeName, setPlaceName] = useState(settings.place ? settings.place.name : '当前位置')
   const [notice, setNotice] = useState<string | null>(null)
+  const [days, setDays] = useState(0)
+
+  useEffect(() => {
+    db.days.count().then(setDays).catch(() => setDays(0))
+  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -63,6 +70,7 @@ export default function Today() {
     try {
       const data = await fetchWeather(lat, lon)
       setWeather(data)
+      saveLastWeather(data.daily)
     } catch (err) {
       setError(err instanceof Error ? err.message : '天气加载失败')
     } finally {
@@ -137,14 +145,27 @@ export default function Today() {
       <section className="card">
         <header className="card-head">
           <h2>那年今天</h2>
-          <span className="pill pill-soft">即将上线</span>
+          {days > 0 ? <span className="pill">{days} 天</span> : <span className="pill pill-soft">待导入</span>}
         </header>
-        <p className="muted">
-          导入相册后，这里会显示 {settings.historyStartYear} 年以来「天气和今天差不多」的那些日子里，你穿了什么。
-        </p>
-        <Link className="btn btn-ghost" to="/rewind">
-          看看计划中的样子 →
-        </Link>
+        {days > 0 ? (
+          <>
+            <p className="muted">
+              已在 {settings.historyStartYear} 年以来的相册里找到 {days} 个穿搭日，去看看天气和今天最像的那几天。
+            </p>
+            <Link className="btn" to="/rewind">
+              打开回忆 →
+            </Link>
+          </>
+        ) : (
+          <>
+            <p className="muted">
+              导入相册后，这里会显示 {settings.historyStartYear} 年以来「天气和今天差不多」的那些日子里，你穿了什么。
+            </p>
+            <Link className="btn" to="/import">
+              导入相册 →
+            </Link>
+          </>
+        )}
       </section>
 
       <footer className="foot">

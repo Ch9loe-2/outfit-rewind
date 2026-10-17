@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Settings } from './types'
+import type { Place, Settings } from './types'
 
 const KEY = 'outfit-rewind:settings:v1'
 
@@ -10,14 +10,16 @@ export const DEFAULT_SETTINGS: Settings = {
   unit: 'c',
   sensitivity: 0,
   historyStartYear: 2015,
-  matchThreshold: 70,
+  matchThreshold: 60,
+  yearPlaces: {},
 }
 
 function load(): Settings {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return DEFAULT_SETTINGS
-    return { ...DEFAULT_SETTINGS, ...(JSON.parse(raw) as Partial<Settings>) }
+    const parsed = JSON.parse(raw) as Partial<Settings>
+    return { ...DEFAULT_SETTINGS, ...parsed, yearPlaces: parsed.yearPlaces ?? {} }
   } catch {
     return DEFAULT_SETTINGS
   }
@@ -26,6 +28,7 @@ function load(): Settings {
 interface Ctx {
   settings: Settings
   update: (patch: Partial<Settings>) => void
+  setYearPlace: (year: number, place: Place | null) => void
   reset: () => void
 }
 
@@ -42,6 +45,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     () => ({
       settings,
       update: (patch) => setSettings((prev) => ({ ...prev, ...patch })),
+      setYearPlace: (year, place) =>
+        setSettings((prev) => {
+          const next = { ...prev.yearPlaces }
+          if (place) next[String(year)] = place
+          else delete next[String(year)]
+          return { ...prev, yearPlaces: next }
+        }),
       reset: () => setSettings(DEFAULT_SETTINGS),
     }),
     [settings],

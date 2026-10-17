@@ -1,64 +1,218 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { db } from '../lib/db'
+import type { DayRow, WeatherRow } from '../lib/db'
+import { ensureWeather, locKeyOf } from '../lib/archive'
+import { readLastWeather } from '../lib/lastWeather'
+import { resolvePlace } from '../lib/places'
+import { match, toFeature, todayInput } from '../lib/similarity'
+import type { MatchResult } from '../lib/similarity'
 import { useSettings } from '../lib/settings'
+import { useThumb } from '../lib/useThumb'
+import { describe, icon, windLevel } from '../lib/weather'
+
+interface Row {
+  day: DayRow
+  weather: WeatherRow | null
+  result: MatchResult | null
+}
+
+function Thumb({ id }: { id: string }) {
+  const url = useThumb(id)
+  return <div className="list-thumb">{url ? <img src={url} alt="" /> : <span className="shot-empty" />}</div>
+}
 
 export default function Rewind() {
   const { settings } = useSettings()
+  const [rows, setRows] = useState<Row[]>([])
+  const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
+  const [year, setYear] = useState<'all' | number>('all')
+  const [threshold, setThreshold] = useState(settings.matchThreshold)
+  const autoSynced = useRef(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const days = (await db.days.toArray()).sort((a, b) => (a.date < b.date ? 1 : -1))
+    const today = readLastWeather()
+
+    const keys: string[] = []
+    const places = new Map<string, { lat: number; lon: number } | null>()
+    for (const day of days) {
+      const place = resolvePlace(day, settings)
+      places.set(day.date, place)
+      if (place) keys.push(locKeyOf(place.lat, place.lon) + ':' + day.date)
+    }
+    const weathers = keys.length ? await db.weather.bulkGet(keys) : []
+    const weatherByKey = new Map<string, WeatherRow>()
+    keys.forEach((key, index) => {
+      const row = weathers[index]
+      if (row) weatherByKey.set(key, row)
+    })
+
+    const next: Row[] = days.map((day) => {
+      const place = places.get(day.date)
+      const key = place ? locKeyOf(place.lat, place.lon) + ':' + day.date : ''
+      const weather = key ? weatherByKey.get(key) ?? null : null
+      const result = today && weather ? match(toFeature(todayInput(today)), toFeature(weather)) : null
+      return { day, weather, result }
+    })
+
+    next.sort((a, b) => {
+      if (a.result && b.result) return b.result.score - a.result.score
+      if (a.result) return -1
+      if (b.result) return 1
+      return a.day.date < b.day.date ? 1 : -1
+    })
+
+    setRows(next)
+    setLoading(false)
+  }, [settings])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  async function syncWeather() {
+    setSyncing(true)
+    const days = await db.days.toArray()
+    await ensureWeather(
+      days.map((d) => ({ date: d.date, lat: d.lat, lon: d.lon })),
+      (day) => resolvePlace(day as DayRow, settings),
+    )
+    await load()
+    setSyncing(false)
+  }
+
+  const years = useMemo(() => {
+    const set = new Set<number>()
+    rows.forEach((row) => set.add(row.day.year))
+    return Array.from(set).sort((a, b) => b - a)
+  }, [rows])
+
+  const visible = useMemo(() => {
+    return rows.filter((row) => {
+      if (year !== 'all' && row.day.year !== year) return false
+      if (row.result && row.result.score < threshold) return false
+      return true
+    })
+  }, [rows, year, threshold])
+
+  const missing = rows.filter((row) => !row.weather).length
+
+  useEffect(() => {
+    if (loading || syncing) return
+    if (missing === 0) return
+    if (autoSynced.current) return
+    autoSynced.current = true
+    void syncWeather()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, missing])
+
+  if (loading) {
+    return (
+      <div className="page">
+        <div className="skeleton skeleton-title" />
+        <div className="skeleton skeleton-card" />
+        <div className="skeleton skeleton-card" />
+      </div>
+    )
+  }
+
+  if (!rows.length) {
+    return (
+      <div className="page">
+        <header className="topbar">
+          <div>
+            <div className="place">回忆</div>
+            <div className="date">那天你穿了什么</div>
+          </div>
+        </header>
+        <section className="card">
+          <h2>还没有照片</h2>
+          <p className="muted">
+            导入相册后，这里会把 {settings.historyStartYear} 年以来「天气和今天差不多」的日子排给你看。
+          </p>
+          <Link className="btn" to="/import">导入相册 →</Link>
+        </section>
+        <section className="card">
+          <h2>怎么算「像」</h2>
+          <p className="muted small">体感 35% · 温差 15% · 降水 20% · 风 12% · 湿度 10% · 紫外线 8%</p>
+        </section>
+      </div>
+    )
+  }
 
   return (
     <div className="page">
       <header className="topbar">
         <div>
           <div className="place">回忆</div>
-          <div className="date">那天你穿了什么</div>
+          <div className="date">{rows.length} 个穿搭日 · {settings.historyStartYear} 年起</div>
         </div>
+        <Link className="icon-btn" to="/import" aria-label="导入">＋</Link>
       </header>
 
-      <section className="card">
-        <h2>这一步还在路上</h2>
-        <p className="muted">
-          照片导入和相似度匹配在下一个版本里。现在这里先放一张"会长什么样"的草图。
-        </p>
-        <div className="mock-list">
-          <div className="mock-item">
-            <div className="mock-thumb" />
-            <div className="mock-body">
-              <div className="mock-line w60" />
-              <div className="mock-line w40" />
-            </div>
-            <div className="mock-score">92</div>
-          </div>
-          <div className="mock-item">
-            <div className="mock-thumb" />
-            <div className="mock-body">
-              <div className="mock-line w50" />
-              <div className="mock-line w30" />
-            </div>
-            <div className="mock-score">88</div>
-          </div>
-          <div className="mock-item">
-            <div className="mock-thumb" />
-            <div className="mock-body">
-              <div className="mock-line w70" />
-              <div className="mock-line w40" />
-            </div>
-            <div className="mock-score">85</div>
-          </div>
+      <div className="filters">
+        <select
+          className="input input-compact"
+          value={String(year)}
+          onChange={(event) => setYear(event.target.value === 'all' ? 'all' : Number(event.target.value))}
+        >
+          <option value="all">全部年份</option>
+          {years.map((item) => (
+            <option key={item} value={item}>{item} 年</option>
+          ))}
+        </select>
+        <select className="input input-compact" value={threshold} onChange={(event) => setThreshold(Number(event.target.value))}>
+          <option value={0}>全部相似度</option>
+          <option value={60}>≥ 60</option>
+          <option value={70}>≥ 70</option>
+          <option value={80}>≥ 80</option>
+          <option value={90}>≥ 90</option>
+        </select>
+      </div>
+
+      {missing > 0 ? (
+        <div className="banner banner-soft">
+          <span>{missing} 天还没对上天气</span>
+          <button className="link-btn" onClick={() => void syncWeather()} disabled={syncing}>
+            {syncing ? '补齐中…' : '补齐'}
+          </button>
         </div>
-      </section>
+      ) : null}
 
-      <section className="card">
-        <h2>怎么算"像"</h2>
-        <p className="muted">
-          体感温度 {Math.round(35)}% · 日温差 15% · 降水 20% · 风 12% · 湿度 10% · 紫外线 8%
-        </p>
-        <p className="muted small">
-          起点年份：{settings.historyStartYear} · 相似度阈值：{settings.matchThreshold}
-        </p>
-      </section>
+      <div className="list">
+        {visible.map(({ day, weather, result }) => (
+          <Link className="list-row" key={day.date} to={'/day/' + day.date}>
+            <Thumb id={day.heroPhotoId} />
+            <div className="list-body">
+              <div className="list-title">
+                <span>{day.date}</span>
+                <span className="muted small">{day.photoCount} 张</span>
+              </div>
+              <div className="muted small">
+                {weather
+                  ? icon(weather.weatherCode) + ' ' + describe(weather.weatherCode) + ' · ' + Math.round(weather.tMin) + '~' + Math.round(weather.tMax) + '° · 风 ' + windLevel(weather.windMax) + ' 级'
+                  : '天气待补齐'}
+              </div>
+            </div>
+            {result ? (
+              <span className={result.score >= 80 ? 'score score-high' : 'score'}>{result.score}</span>
+            ) : (
+              <span className="score score-empty">—</span>
+            )}
+          </Link>
+        ))}
+      </div>
 
-      <Link className="btn btn-ghost" to="/">
-        回到今天
-      </Link>
+      <p className="muted small center">
+        {visible.length === rows.length
+          ? '共 ' + rows.length + ' 天'
+          : '显示 ' + visible.length + ' / ' + rows.length + ' 天'}
+      </p>
+
+      <footer className="foot">只比对本机照片，不上传</footer>
     </div>
   )
 }

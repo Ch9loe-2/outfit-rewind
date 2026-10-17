@@ -1,64 +1,115 @@
-import type { DailyWeather } from './types'
-
-export interface DayWeather {
-  date: string
-  feelsMean: number
-  tempRange: number
+export interface WeatherInput {
+  tMax: number
+  tMin: number
+  feelsMax: number
+  feelsMin: number
   precipSum: number
   windMax: number
-  humidityMean: number
-  uvMax: number
+  humidityMean: number | null
+  uvMax: number | null
 }
 
-const SCALE = {
+export interface Feature {
+  feelsMean: number
+  tempRange: number
+  precip: number
+  windMax: number
+  humidity: number | null
+  uv: number | null
+}
+
+const SCALE: Record<string, number> = {
   feelsMean: 8,
   tempRange: 6,
-  precipSum: 5,
+  precip: 5,
   windMax: 20,
-  humidityMean: 25,
-  uvMax: 6,
+  humidity: 25,
+  uv: 6,
 }
 
-const WEIGHT = {
+const WEIGHT: Record<string, number> = {
   feelsMean: 0.35,
   tempRange: 0.15,
-  precipSum: 0.2,
+  precip: 0.2,
   windMax: 0.12,
-  humidityMean: 0.1,
-  uvMax: 0.08,
+  humidity: 0.1,
+  uv: 0.08,
 }
 
-export function toDayWeather(w: DailyWeather): DayWeather {
+export const DIM_LABEL: Record<string, string> = {
+  feelsMean: '体感',
+  tempRange: '温差',
+  precip: '降水',
+  windMax: '风',
+  humidity: '湿度',
+  uv: '紫外线',
+}
+
+export function todayInput(d: {
+  tempMax: number
+  tempMin: number
+  feelsMax: number
+  feelsMin: number
+  precipSum: number
+  windMax: number
+  humidityMean: number | null
+  uvMax: number | null
+}): WeatherInput {
   return {
-    date: w.date,
-    feelsMean: (w.feelsMax + w.feelsMin) / 2,
-    tempRange: w.tempMax - w.tempMin,
-    precipSum: w.precipSum,
-    windMax: w.windMax,
-    humidityMean: w.humidityMean ?? 60,
-    uvMax: w.uvMax,
+    tMax: d.tempMax,
+    tMin: d.tempMin,
+    feelsMax: d.feelsMax,
+    feelsMin: d.feelsMin,
+    precipSum: d.precipSum,
+    windMax: d.windMax,
+    humidityMean: d.humidityMean,
+    uvMax: d.uvMax,
   }
 }
 
-export function similarity(today: DayWeather, other: DayWeather): number {
-  const dims: Array<{ key: keyof typeof SCALE; a: number; b: number }> = [
-    { key: 'feelsMean', a: today.feelsMean, b: other.feelsMean },
-    { key: 'tempRange', a: today.tempRange, b: other.tempRange },
-    { key: 'precipSum', a: Math.log1p(Math.max(0, today.precipSum)), b: Math.log1p(Math.max(0, other.precipSum)) },
-    { key: 'windMax', a: today.windMax, b: other.windMax },
-    { key: 'humidityMean', a: today.humidityMean, b: other.humidityMean },
-    { key: 'uvMax', a: today.uvMax, b: other.uvMax },
-  ]
-
-  let weighted = 0
-  let totalWeight = 0
-  for (const dim of dims) {
-    if (!Number.isFinite(dim.a) || !Number.isFinite(dim.b)) continue
-    const w = WEIGHT[dim.key]
-    weighted += w * (Math.abs(dim.a - dim.b) / SCALE[dim.key])
-    totalWeight += w
+export function toFeature(w: WeatherInput): Feature {
+  return {
+    feelsMean: (w.feelsMax + w.feelsMin) / 2,
+    tempRange: w.tMax - w.tMin,
+    precip: Math.log1p(Math.max(0, w.precipSum)),
+    windMax: w.windMax,
+    humidity: w.humidityMean,
+    uv: w.uvMax,
   }
-  if (totalWeight === 0) return 0
-  const distance = weighted / totalWeight
-  return Math.round(100 * Math.exp(-distance / 1.6))
+}
+
+export interface MatchResult {
+  score: number
+  parts: Array<{ key: string; label: string; weight: number; delta: number }>
+  confidence: number
+}
+
+export function match(today: Feature, other: Feature): MatchResult {
+  let weighted = 0
+  let total = 0
+  let used = 0
+  const parts: Array<{ key: string; label: string; weight: number; delta: number }> = []
+
+  for (const key of Object.keys(WEIGHT)) {
+    const a = (today as unknown as Record<string, number | null>)[key]
+    const b = (other as unknown as Record<string, number | null>)[key]
+    if (a === null || b === null || a === undefined || b === undefined) continue
+    if (!Number.isFinite(a) || !Number.isFinite(b)) continue
+    const w = WEIGHT[key]
+    const delta = Math.abs(a - b) / SCALE[key]
+    weighted += w * delta
+    total += w
+    used += 1
+    parts.push({ key, label: DIM_LABEL[key], weight: w, delta })
+  }
+
+  if (!total) return { score: 0, parts: [], confidence: 0 }
+
+  const distance = weighted / total
+  const score = Math.round(100 * Math.exp(-distance / 1.6))
+  const partsSorted = parts
+    .map((p) => ({ ...p, weight: p.weight / total }))
+    .sort((x, y) => y.weight - x.weight)
+
+  return { score, parts: partsSorted, confidence: Math.min(1, used / 6) }
 }

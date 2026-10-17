@@ -49,4 +49,5 @@ export interface Settings {
   sensitivity: Sensitivity
   historyStartYear: number
   matchThreshold: number
+  yearPlaces: Record<string, Place>
 }
