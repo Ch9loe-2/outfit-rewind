@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/metric.tsx","./src/components/outfitcard.tsx","./src/components/tabbar.tsx","./src/lib/location.ts","./src/lib/outfit.ts","./src/lib/settings.tsx","./src/lib/similarity.ts","./src/lib/types.ts","./src/lib/weather.ts","./src/pages/rewind.tsx","./src/pages/settings.tsx","./src/pages/today.tsx"],"version":"5.9.3"}
