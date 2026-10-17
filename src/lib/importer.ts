@@ -114,25 +114,58 @@ export async function importFiles(
   }
 }
 
-export async function rebuildDays(dateKeys: string[]): Promise<number> {
-  if (!dateKeys.length) return 0
+const IMPUTE_MAX_DAYS = 3
 
-  const days: DayRow[] = []
-  for (const date of dateKeys) {
-    const photos = await db.photos.where('dayKey').equals(date).toArray()
-    if (!photos.length) {
-      await db.days.delete(date)
+function dayDiff(a: string, b: string): number {
+  return Math.abs(new Date(a + 'T12:00:00').getTime() - new Date(b + 'T12:00:00').getTime()) / 86400000
+}
+
+/** 没有 GPS 的日子，借用前后 3 天内最近的、有坐标的那一天 */
+function imputeDays(days: DayRow[]): void {
+  const anchors = days.filter((d) => typeof d.lat === 'number' && typeof d.lon === 'number')
+  if (!anchors.length) return
+
+  for (const day of days) {
+    if (typeof day.lat === 'number' && typeof day.lon === 'number') {
+      day.geoSource = 'exif'
       continue
     }
+    let best: DayRow | null = null
+    let bestGap = Infinity
+    for (const anchor of anchors) {
+      const gap = dayDiff(day.date, anchor.date)
+      if (gap <= IMPUTE_MAX_DAYS && gap < bestGap) {
+        best = anchor
+        bestGap = gap
+      }
+    }
+    if (best) {
+      day.lat = best.lat
+      day.lon = best.lon
+      day.geoSource = 'imputed'
+    } else {
+      day.geoSource = 'none'
+    }
+  }
+}
 
-    const lats = photos.filter((p) => typeof p.lat === 'number').map((p) => p.lat as number)
-    const lons = photos.filter((p) => typeof p.lon === 'number').map((p) => p.lon as number)
-    const lat = median(lats)
-    const lon = median(lons)
+export async function rebuildDays(_dateKeys?: string[]): Promise<number> {
+  const photos = await db.photos.toArray()
+  const groups = new Map<string, PhotoRow[]>()
+  for (const photo of photos) {
+    const list = groups.get(photo.dayKey)
+    if (list) list.push(photo)
+    else groups.set(photo.dayKey, [photo])
+  }
 
-    let hero = photos[0]
+  const days: DayRow[] = []
+  for (const [date, list] of groups) {
+    const lats = list.filter((p) => typeof p.lat === 'number').map((p) => p.lat as number)
+    const lons = list.filter((p) => typeof p.lon === 'number').map((p) => p.lon as number)
+
+    let hero = list[0]
     let best = hero.width * hero.height
-    for (const photo of photos) {
+    for (const photo of list) {
       const area = photo.width * photo.height
       if (area > best || (area === best && photo.takenAt < hero.takenAt)) {
         hero = photo
@@ -144,14 +177,21 @@ export async function rebuildDays(dateKeys: string[]): Promise<number> {
       date,
       year: yearOf(date),
       month: monthOf(date),
-      lat,
-      lon,
-      photoIds: photos.map((p) => p.id),
+      lat: median(lats),
+      lon: median(lons),
+      photoIds: list.map((p) => p.id),
       heroPhotoId: hero.id,
-      photoCount: photos.length,
+      photoCount: list.length,
       createdAt: Date.now(),
     })
   }
+
+  days.sort((a, b) => (a.date < b.date ? -1 : 1))
+  imputeDays(days)
+
+  const existing = await db.days.toArray()
+  const stale = existing.filter((d) => !groups.has(d.date)).map((d) => d.date)
+  if (stale.length) await db.days.bulkDelete(stale)
 
   await db.days.bulkPut(days)
   return days.length

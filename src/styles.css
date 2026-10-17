@@ -798,6 +798,21 @@ body {
   border-radius: 999px;
 }
 
+.gap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gap-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+
 .part-value {
   text-align: right;
   color: var(--ink-faint);

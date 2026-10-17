@@ -27,6 +27,8 @@ export interface DayRow {
   heroPhotoId: string
   photoCount: number
   band?: string
+  /** exif：照片自带坐标；imputed：借用附近有坐标的那一天；none：都没有 */
+  geoSource?: 'exif' | 'imputed' | 'none'
   createdAt: number
 }
 

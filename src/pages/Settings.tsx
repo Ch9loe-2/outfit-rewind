@@ -3,6 +3,7 @@ import CitySearch from '../components/CitySearch'
 import { useSettings } from '../lib/settings'
 import type { Sensitivity } from '../lib/types'
 import { clearAll, db, estimatedUsage } from '../lib/db'
+import { rebuildDays } from '../lib/importer'
 
 const START_YEAR = 2015
 
@@ -17,7 +18,14 @@ export default function SettingsPage() {
   const { settings, update, setYearPlace, reset } = useSettings()
   const [targetYear, setTargetYear] = useState(new Date().getFullYear())
   const [stats, setStats] = useState<{ photos: number; days: number; mb: number } | null>(null)
-  const [diag, setDiag] = useState<{ exif: number; mtime: number; gps: number; years: number[] } | null>(null)
+  const [diag, setDiag] = useState<{
+    exif: number
+    mtime: number
+    gps: number
+    years: number[]
+    gaps: Array<{ year: number; total: number; none: number; imputed: number }>
+  } | null>(null)
+  const [rebuilding, setRebuilding] = useState(false)
 
   useEffect(() => {
     void refreshStats()
@@ -35,11 +43,25 @@ export default function SettingsPage() {
     const photos = await db.photos.toArray()
     const days = await db.days.toArray()
     const years = Array.from(new Set(days.map((d) => d.year))).sort((a, b) => a - b)
+
+    const byYear = new Map<number, { total: number; none: number; imputed: number }>()
+    for (const day of days) {
+      const row = byYear.get(day.year) ?? { total: 0, none: 0, imputed: 0 }
+      row.total += 1
+      if (day.geoSource === 'imputed') row.imputed += 1
+      else if (day.geoSource === 'none' || (day.geoSource === undefined && typeof day.lat !== 'number')) row.none += 1
+      byYear.set(day.year, row)
+    }
+    const gaps = Array.from(byYear.entries())
+      .map(([year, v]) => ({ year, ...v }))
+      .sort((a, b) => b.year - a.year)
+
     setDiag({
       exif: photos.filter((p) => p.takenAtSource === 'exif').length,
       mtime: photos.filter((p) => p.takenAtSource !== 'exif').length,
       gps: photos.filter((p) => p.geoSource === 'exif').length,
       years,
+      gaps,
     })
   }
 
@@ -177,7 +199,36 @@ export default function SettingsPage() {
             <span>{diag && diag.years.length ? diag.years[0] + '–' + diag.years[diag.years.length - 1] : '—'}</span>
           </li>
         </ul>
+        {diag && diag.gaps.some((g) => g.none > 0) ? (
+          <div className="gap-list">
+            <p className="muted small">这些年份有照片没有定位，会按「给某一年指定城市」或默认城市取天气：</p>
+            {diag.gaps
+              .filter((g) => g.none > 0)
+              .map((g) => (
+                <div className="gap-row" key={g.year}>
+                  <span>{g.year} 年</span>
+                  <span className="muted small">
+                    {g.total} 天 · {g.none} 天无定位
+                    {g.imputed ? ' · ' + g.imputed + ' 天按邻近推断' : ''}
+                  </span>
+                </div>
+              ))}
+          </div>
+        ) : null}
         <div className="actions">
+          <button
+            className="btn btn-ghost"
+            disabled={rebuilding}
+            onClick={async () => {
+              setRebuilding(true)
+              await rebuildDays()
+              await refreshStats()
+              await refreshDiag()
+              setRebuilding(false)
+            }}
+          >
+            {rebuilding ? '重新聚合中…' : '重新聚合'}
+          </button>
           <button
             className="btn btn-ghost"
             onClick={async () => {
