@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import CitySearch from '../components/CitySearch'
 import { useSettings } from '../lib/settings'
 import type { Sensitivity } from '../lib/types'
 import { clearAll, db, estimatedUsage } from '../lib/db'
 import { rebuildDays } from '../lib/importer'
+import { exportBackup, importBackup } from '../lib/backup'
 import { overlaps } from '../lib/places'
 import type { Period } from '../lib/types'
 
@@ -30,6 +31,9 @@ export default function SettingsPage() {
     gaps: Array<{ year: number; total: number; none: number; imputed: number }>
   } | null>(null)
   const [rebuilding, setRebuilding] = useState(false)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [backupNote, setBackupNote] = useState<string | null>(null)
+  const importRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     void refreshStats()
@@ -67,6 +71,49 @@ export default function SettingsPage() {
       years,
       gaps,
     })
+  }
+
+  async function handleExport() {
+    if (stats && stats.photos > 3000 && !confirm('有 ' + stats.photos + ' 张照片，备份包可能比较大，继续吗？')) return
+    setBusy('正在打包…')
+    setBackupNote(null)
+    try {
+      const { blob, stats: result } = await exportBackup(true)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      const stamp = new Date().toISOString().slice(0, 10)
+      link.href = url
+      link.download = 'outfit-rewind-' + stamp + '.zip'
+      link.click()
+      setTimeout(() => URL.revokeObjectURL(url), 4000)
+      setBackupNote(
+        '已导出 ' + result.photos + ' 张照片索引、' + result.days + ' 个穿搭日、' +
+          result.thumbs + ' 张缩略图（' + Math.round(result.bytes / 1024 / 1024) + ' MB）',
+      )
+    } catch (error) {
+      setBackupNote('导出失败：' + (error instanceof Error ? error.message : '未知错误'))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function handleImport(file: File) {
+    if (!confirm('导入会合并到现有数据（同 id 的跳过），并覆盖当前设置。继续吗？')) return
+    setBusy('正在导入…')
+    setBackupNote(null)
+    try {
+      const result = await importBackup(file)
+      await refreshStats()
+      await refreshDiag()
+      setBackupNote(
+        '已导入 ' + result.days + ' 天、' + result.photos + ' 张新照片索引、' + result.thumbs + ' 张缩略图' +
+          (result.hasSettings ? '，设置也一并恢复（刷新后生效）' : ''),
+      )
+    } catch (error) {
+      setBackupNote('导入失败：' + (error instanceof Error ? error.message : '未知错误'))
+    } finally {
+      setBusy(null)
+    }
   }
 
   const overrides = Object.entries(settings.yearPlaces).sort((a, b) => Number(b[0]) - Number(a[0]))
@@ -282,6 +329,28 @@ export default function SettingsPage() {
               ))}
           </div>
         ) : null}
+        <div className="actions">
+          <button className="btn btn-ghost" disabled={Boolean(busy)} onClick={() => void handleExport()}>
+            {busy === '正在打包…' ? '打包中…' : '导出备份'}
+          </button>
+          <button className="btn btn-ghost" disabled={Boolean(busy)} onClick={() => importRef.current?.click()}>
+            导入备份
+          </button>
+          <input
+            ref={importRef}
+            type="file"
+            accept=".zip,application/zip"
+            className="hidden-input"
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              event.target.value = ''
+              if (file) void handleImport(file)
+            }}
+          />
+        </div>
+        {backupNote ? <p className="muted small">{backupNote}</p> : null}
+        <p className="muted small">备份是 zip：照片索引 + 缩略图 + 天气缓存 + 设置，不包含原图。</p>
+
         <div className="actions">
           <button
             className="btn btn-ghost"
