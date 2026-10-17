@@ -1,8 +1,18 @@
 import type { DayRow } from './db'
 import type { Place, Settings } from './types'
 
+/** 命中多个时，后添加的那条生效 */
 export function periodOf(day: DayRow, settings: Settings) {
-  return (settings.periods ?? []).find((p) => day.date >= p.from && day.date <= p.to)
+  let best: { from: string; to: string; place: { lat: number; lon: number; name: string }; createdAt?: number; id: string } | undefined
+  for (const period of settings.periods ?? []) {
+    if (day.date < period.from || day.date > period.to) continue
+    if (!best || (period.createdAt ?? 0) >= (best.createdAt ?? 0)) best = period
+  }
+  return best
+}
+
+export function overlaps(a: { from: string; to: string }, b: { from: string; to: string }): boolean {
+  return a.from <= b.to && b.from <= a.to
 }
 
 /**

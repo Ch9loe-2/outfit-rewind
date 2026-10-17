@@ -65,7 +65,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           ...prev,
           periods: [
             ...(prev.periods ?? []),
-            { id: from + '-' + to + '-' + Date.now().toString(36), from, to, place },
+            { id: from + '-' + to + '-' + Date.now().toString(36), from, to, place, createdAt: Date.now() },
           ].sort((a, b) => (a.from < b.from ? -1 : 1)),
         })),
       removePeriod: (id) =>

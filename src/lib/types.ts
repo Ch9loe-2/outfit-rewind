@@ -48,6 +48,8 @@ export interface Period {
   from: string
   to: string
   place: Place
+  /** 后添加的优先，重叠时用来判定 */
+  createdAt?: number
 }
 
 export interface Settings {

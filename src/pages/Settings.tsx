@@ -4,6 +4,8 @@ import { useSettings } from '../lib/settings'
 import type { Sensitivity } from '../lib/types'
 import { clearAll, db, estimatedUsage } from '../lib/db'
 import { rebuildDays } from '../lib/importer'
+import { overlaps } from '../lib/places'
+import type { Period } from '../lib/types'
 
 const START_YEAR = 2015
 
@@ -69,6 +71,25 @@ export default function SettingsPage() {
 
   const overrides = Object.entries(settings.yearPlaces).sort((a, b) => Number(b[0]) - Number(a[0]))
 
+  function conflictsOf(range: { from: string; to: string }, selfId?: string): Period[] {
+    return (settings.periods ?? []).filter(
+      (period) => period.id !== selfId && overlaps(range, period),
+    )
+  }
+
+  function addWithCheck(range: { from: string; to: string }, place: { name: string; lat: number; lon: number }) {
+    const conflicts = conflictsOf(range)
+    if (conflicts.length) {
+      const list = conflicts.map((c) => c.from + '~' + c.to + ' · ' + c.place.name).join('\n')
+      const ok = confirm(
+        '这段时间和已有设置重叠：\n' + list + '\n\n后添加的会覆盖先添加的。继续添加吗？',
+      )
+      if (!ok) return false
+    }
+    addPeriod(range.from, range.to, place)
+    return true
+  }
+
   return (
     <div className="page">
       <header className="topbar">
@@ -126,22 +147,33 @@ export default function SettingsPage() {
           placeholder={from && to ? '给 ' + from + ' ~ ' + to + ' 选城市' : '先选起止日期'}
           onPick={(place) => {
             if (!from || !to || from > to) return
-            addPeriod(from, to, place)
+            if (!addWithCheck({ from, to }, place)) return
             setFrom('')
             setTo('')
           }}
         />
         {(settings.periods ?? []).length ? (
           <ul className="plain-list">
-            {settings.periods.map((period) => (
-              <li key={period.id}>
-                <span>
-                  {period.from} ~ {period.to} · {period.place.name}
-                </span>
-                <button className="link-btn" onClick={() => removePeriod(period.id)}>移除</button>
-              </li>
-            ))}
+            {settings.periods.map((period) => {
+              const conflicts = conflictsOf(period, period.id)
+              return (
+                <li key={period.id}>
+                  <span>
+                    {period.from} ~ {period.to} · {period.place.name}
+                    {conflicts.length ? (
+                      <span className="warn-tag" title={conflicts.map((c) => c.from + '~' + c.to).join('、')}>
+                        重叠
+                      </span>
+                    ) : null}
+                  </span>
+                  <button className="link-btn" onClick={() => removePeriod(period.id)}>移除</button>
+                </li>
+              )
+            })}
           </ul>
+        ) : null}
+        {(settings.periods ?? []).length > 1 ? (
+          <p className="muted small">有重叠时，后添加的那条生效（列表里标「重叠」的会互相覆盖）。</p>
         ) : null}
       </section>
 
