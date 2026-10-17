@@ -1,5 +1,13 @@
-import exifr from 'exifr'
 import type { PhotoRow } from './db'
+
+type ExifrModule = typeof import('exifr')['default']
+let exifrPromise: Promise<ExifrModule> | null = null
+
+/** exifr 体积不小，只有导入时才需要，放到动态 chunk 里 */
+function loadExifr(): Promise<ExifrModule> {
+  if (!exifrPromise) exifrPromise = import('exifr').then((mod) => mod.default)
+  return exifrPromise
+}
 
 export interface PhotoMeta {
   id: string
@@ -55,6 +63,7 @@ function toDecimal(value: unknown): number | undefined {
 export async function readPhotoMeta(file: File): Promise<PhotoMeta> {
   let exif: ExifShape | null = null
   try {
+    const exifr = await loadExifr()
     exif = (await exifr.parse(file, {
       pick: [
         'DateTimeOriginal',

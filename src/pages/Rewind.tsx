@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { db } from '../lib/db'
 import type { DayRow, WeatherRow } from '../lib/db'
-import { ensureWeather, locKeyOf } from '../lib/archive'
+import { ensureWeather } from '../lib/archive'
 import { readLastWeather } from '../lib/lastWeather'
-import { placeOf, resolvePlace } from '../lib/places'
-import { match, toFeature, todayInput } from '../lib/similarity'
+import { placeOf } from '../lib/places'
+import { buildMatches } from '../lib/matches'
 import type { MatchResult } from '../lib/similarity'
 import { useSettings } from '../lib/settings'
 import { useThumb } from '../lib/useThumb'
@@ -35,30 +35,7 @@ export default function Rewind() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const days = (await db.days.toArray()).sort((a, b) => (a.date < b.date ? 1 : -1))
-    const today = readLastWeather()
-
-    const keys: string[] = []
-    const places = new Map<string, { lat: number; lon: number } | null>()
-    for (const day of days) {
-      const place = resolvePlace(day, settings)
-      places.set(day.date, place)
-      if (place) keys.push(locKeyOf(place.lat, place.lon) + ':' + day.date)
-    }
-    const weathers = keys.length ? await db.weather.bulkGet(keys) : []
-    const weatherByKey = new Map<string, WeatherRow>()
-    keys.forEach((key, index) => {
-      const row = weathers[index]
-      if (row) weatherByKey.set(key, row)
-    })
-
-    const next: Row[] = days.map((day) => {
-      const place = places.get(day.date)
-      const key = place ? locKeyOf(place.lat, place.lon) + ':' + day.date : ''
-      const weather = key ? weatherByKey.get(key) ?? null : null
-      const result = today && weather ? match(toFeature(todayInput(today)), toFeature(weather)) : null
-      return { day, weather, result }
-    })
+    const next: Row[] = await buildMatches(settings, readLastWeather())
 
     next.sort((a, b) => {
       if (a.result && b.result) return b.result.score - a.result.score
@@ -236,10 +213,11 @@ export default function Rewind() {
         {view === 'score' ? (
           <select className="input input-compact" value={threshold} onChange={(event) => setThreshold(Number(event.target.value))}>
             <option value={0}>全部相似度</option>
+            <option value={40}>≥ 40</option>
+            <option value={50}>≥ 50</option>
             <option value={60}>≥ 60</option>
             <option value={70}>≥ 70</option>
             <option value={80}>≥ 80</option>
-            <option value={90}>≥ 90</option>
           </select>
         ) : (
           <div className="spacer" />

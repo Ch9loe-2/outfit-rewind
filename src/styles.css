@@ -798,6 +798,67 @@ body {
   border-radius: 999px;
 }
 
+.error-detail {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 160px;
+  overflow: auto;
+}
+
+.top-matches {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.top-card {
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.top-thumb {
+  aspect-ratio: 3 / 4;
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(160deg, var(--accent-soft), var(--line));
+}
+
+.top-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.top-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.top-date {
+  font-size: 11px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.top-score {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
 .topbar-actions {
   display: flex;
   gap: 8px;

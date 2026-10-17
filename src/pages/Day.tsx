@@ -170,7 +170,7 @@ export default function Day() {
             ))}
           </div>
           <p className="muted small">
-            相似度 = 100 × exp(-加权距离 / 1.6)，缺失维度自动剔除并重新分配权重。
+            相似度 = 100 × exp(-加权距离 / 0.8)，缺失维度自动剔除并重新分配权重。
           </p>
         </section>
       ) : null}

@@ -10,7 +10,7 @@ export const DEFAULT_SETTINGS: Settings = {
   unit: 'c',
   sensitivity: 0,
   historyStartYear: 2015,
-  matchThreshold: 60,
+  matchThreshold: 50,
   yearPlaces: {},
   periods: [],
 }

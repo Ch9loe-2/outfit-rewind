@@ -6,9 +6,25 @@ import { advise } from '../lib/outfit'
 import { currentPosition } from '../lib/location'
 import { saveLastWeather } from '../lib/lastWeather'
 import { db } from '../lib/db'
+import { buildMatches } from '../lib/matches'
+import type { MatchRow } from '../lib/matches'
 import { useSettings } from '../lib/settings'
+import { useThumb } from '../lib/useThumb'
 import type { WeatherBundle } from '../lib/types'
 import { clock, describe, fetchWeather, icon, windLevel } from '../lib/weather'
+
+function TopCard({ row }: { row: MatchRow }) {
+  const url = useThumb(row.day.heroPhotoId)
+  return (
+    <Link className="top-card" to={'/day/' + row.day.date}>
+      <div className="top-thumb">{url ? <img src={url} alt="" /> : <span className="shot-empty" />}</div>
+      <div className="top-meta">
+        <span className="top-date">{row.day.date.slice(2)}</span>
+        <span className="top-score">{row.result ? row.result.score : '—'}</span>
+      </div>
+    </Link>
+  )
+}
 
 function todayLabel(): string {
   const now = new Date()
@@ -24,6 +40,7 @@ export default function Today() {
   const [placeName, setPlaceName] = useState(settings.place ? settings.place.name : '当前位置')
   const [notice, setNotice] = useState<string | null>(null)
   const [days, setDays] = useState(0)
+  const [top, setTop] = useState<MatchRow[]>([])
   const [showWechatTip, setShowWechatTip] = useState(false)
 
   useEffect(() => {
@@ -32,6 +49,26 @@ export default function Today() {
     const dismissed = localStorage.getItem('outfit-rewind:wechat-tip') === '1'
     setShowWechatTip(inWechat && !dismissed)
   }, [])
+
+  useEffect(() => {
+    if (!weather) return
+    let alive = true
+    buildMatches(settings, weather.daily)
+      .then((rows) => {
+        if (!alive) return
+        const ranked = rows
+          .filter((row) => row.result)
+          .sort((a, b) => (b.result?.score ?? 0) - (a.result?.score ?? 0))
+          .slice(0, 3)
+        setTop(ranked)
+      })
+      .catch(() => {
+        if (alive) setTop([])
+      })
+    return () => {
+      alive = false
+    }
+  }, [weather, settings])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -173,10 +210,21 @@ export default function Today() {
           <h2>那年今天</h2>
           {days > 0 ? <span className="pill">{days} 天</span> : <span className="pill pill-soft">待导入</span>}
         </header>
-        {days > 0 ? (
+        {top.length ? (
+          <>
+            <div className="top-matches">
+              {top.map((row) => (
+                <TopCard key={row.day.date} row={row} />
+              ))}
+            </div>
+            <Link className="btn btn-ghost" to="/rewind">
+              看全部 {days} 天 →
+            </Link>
+          </>
+        ) : days > 0 ? (
           <>
             <p className="muted">
-              已在 {settings.historyStartYear} 年以来的相册里找到 {days} 个穿搭日，去看看天气和今天最像的那几天。
+              已有 {days} 个穿搭日，但还没对上天气，回回忆页补齐一下就能看到最像的几天。
             </p>
             <Link className="btn" to="/rewind">
               打开回忆 →

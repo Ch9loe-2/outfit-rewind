@@ -106,7 +106,8 @@ export function match(today: Feature, other: Feature): MatchResult {
   if (!total) return { score: 0, parts: [], confidence: 0 }
 
   const distance = weighted / total
-  const score = Math.round(100 * Math.exp(-distance / 1.6))
+  // 0.8 的衰减：体感差 2°C ≈ 90 分，差 5°C ≈ 76，差 10°C ≈ 58，差 16°C ≈ 42
+  const score = Math.round(100 * Math.exp(-distance / 0.8))
   const partsSorted = parts
     .map((p) => ({ ...p, weight: p.weight / total }))
     .sort((x, y) => y.weight - x.weight)
