@@ -70,7 +70,13 @@ export default function SettingsPage() {
             手动选城市
           </button>
         </div>
-        {settings.place ? (
+        <p className="muted small">
+          当前生效：
+          {settings.mode === 'auto'
+            ? '自动定位' + (settings.place ? '（定位失败时用 ' + settings.place.name + '）' : '')
+            : '手动 · ' + (settings.place ? settings.place.name : '未选择')}
+        </p>
+        {settings.place && settings.mode === 'fixed' ? (
           <p className="muted small">
             当前城市：{settings.place.name}
             {settings.place.admin ? ' · ' + settings.place.admin : ''}
