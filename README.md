@@ -6,12 +6,17 @@
 
 没有账号，没有服务器，**照片一张都不上传**。
 
+在线试用：https://ch9loe-2.github.io/outfit-rewind/
+
+<img src="docs/screenshot-today.png" width="360" alt="今天页" /> <img src="docs/screenshot-dark.png" width="360" alt="深色模式" />
+
 ## 现在能做什么（v0.1）
 
 - [x] 定位 / 手动选城市，拉取 Open-Meteo 实况与今日预报
 - [x] 全量指标：最高最低温、体感、降水概率与降水量、风速、湿度、紫外线、日出日落
 - [x] 规则化穿衣建议（三层穿法 + 配件 + 理由），不调用任何大模型
-- [x] 体感偏好（怕冷 / 正常 / 怕热）
+- [x] 体感偏好（怕冷 / 正常 / 怕热）、历史起点（2015 起）
+- [x] 跟随系统深浅色，移动端优先
 - [ ] 相册导入与 EXIF 解析（v0.2）
 - [ ] 历史天气按年批量拉取（v0.2）
 - [ ] 相似度排序与「那天你穿了什么」（v0.3）
@@ -27,11 +32,15 @@
 
 ## 部署
 
-推到 `main` 分支后，GitHub Actions 会自动构建并发布到 GitHub Pages。首次需要在仓库的 **Settings → Pages → Source** 里选择 **GitHub Actions**。
+站点走 `gh-pages` 分支，一条命令：
 
-站点地址：https://ch9loe-2.github.io/outfit-rewind/
+    ./scripts/deploy.sh
 
-## 相似度怎么算
+首次使用需要在仓库 **Settings → Pages → Source** 里选择 **Deploy from a branch**，分支 `gh-pages`、目录 `/`。
+
+> 想改成 push 自动部署（GitHub Actions）也可以，但需要 token 带 `workflow` 权限，当前凭据没有。
+
+## 相似度怎么算（v0.3 用）
 
 六个维度加权，缺失维度自动剔除并重归一化：
 

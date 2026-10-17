@@ -46,7 +46,7 @@ export default function Today() {
         lat = settings.place.lat
         lon = settings.place.lon
         setPlaceName(settings.place.name)
-        setNotice(message + '，先用「' + settings.place.name + '」的天气')
+        setNotice(message)
       }
     } else {
       const place = settings.place
@@ -109,14 +109,12 @@ export default function Today() {
       <header className="topbar">
         <div>
           <div className="place">{placeName}</div>
-          <div className="date">{todayLabel()}</div>
+          <div className="date">{notice ? notice + ' · ' : ''}{todayLabel()}</div>
         </div>
         <button className="icon-btn" onClick={() => void load()} aria-label="刷新">
           ↻
         </button>
       </header>
-
-      {notice ? <div className="banner">{notice}</div> : null}
 
       <section className="hero">
         <div className="hero-icon">{icon(current.weatherCode)}</div>
