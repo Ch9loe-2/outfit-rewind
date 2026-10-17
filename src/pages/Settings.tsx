@@ -21,10 +21,24 @@ export default function SettingsPage() {
   const [searching, setSearching] = useState(false)
   const [target, setTarget] = useState<'home' | number>('home')
   const [stats, setStats] = useState<{ photos: number; days: number; mb: number } | null>(null)
+  const [diag, setDiag] = useState<{ exif: number; mtime: number; gps: number; years: number[] } | null>(null)
 
   useEffect(() => {
     void refreshStats()
+    void refreshDiag()
   }, [])
+
+  async function refreshDiag() {
+    const photos = await db.photos.toArray()
+    const days = await db.days.toArray()
+    const years = Array.from(new Set(days.map((d) => d.year))).sort((a, b) => a - b)
+    setDiag({
+      exif: photos.filter((p) => p.takenAtSource === 'exif').length,
+      mtime: photos.filter((p) => p.takenAtSource !== 'exif').length,
+      gps: photos.filter((p) => p.geoSource === 'exif').length,
+      years,
+    })
+  }
 
   async function refreshStats() {
     const usage = await estimatedUsage()
@@ -199,6 +213,18 @@ export default function SettingsPage() {
             <span>{stats ? stats.mb + ' MB' : '—'}</span>
           </li>
           <li>
+            <span>拍摄时间</span>
+            <span>{diag ? 'EXIF ' + diag.exif + ' · 文件 ' + diag.mtime : '—'}</span>
+          </li>
+          <li>
+            <span>带 GPS</span>
+            <span>{diag && stats && stats.photos ? Math.round((diag.gps / stats.photos) * 100) + '%' : '—'}</span>
+          </li>
+          <li>
+            <span>覆盖年份</span>
+            <span>{diag && diag.years.length ? diag.years[0] + '–' + diag.years[diag.years.length - 1] : '—'}</span>
+          </li>
+          <li>
             <span>天气来源</span>
             <span className="muted">Open-Meteo</span>
           </li>
@@ -210,6 +236,7 @@ export default function SettingsPage() {
               if (!confirm('清空本机所有照片索引、缩略图和天气缓存？此操作不可撤销。')) return
               await clearAll()
               await refreshStats()
+              await refreshDiag()
             }}
           >
             清空本机数据

@@ -24,9 +24,13 @@ export default function Today() {
   const [placeName, setPlaceName] = useState(settings.place ? settings.place.name : '当前位置')
   const [notice, setNotice] = useState<string | null>(null)
   const [days, setDays] = useState(0)
+  const [showWechatTip, setShowWechatTip] = useState(false)
 
   useEffect(() => {
     db.days.count().then(setDays).catch(() => setDays(0))
+    const inWechat = /MicroMessenger/i.test(navigator.userAgent)
+    const dismissed = localStorage.getItem('outfit-rewind:wechat-tip') === '1'
+    setShowWechatTip(inWechat && !dismissed)
   }, [])
 
   const load = useCallback(async () => {
@@ -123,6 +127,21 @@ export default function Today() {
           ↻
         </button>
       </header>
+
+      {showWechatTip ? (
+        <div className="banner">
+          <span>微信内置浏览器会限制定位和本地存储，建议点右上角「…」→ 在浏览器打开。</span>
+          <button
+            className="link-btn"
+            onClick={() => {
+              localStorage.setItem('outfit-rewind:wechat-tip', '1')
+              setShowWechatTip(false)
+            }}
+          >
+            知道了
+          </button>
+        </div>
+      ) : null}
 
       <section className="hero">
         <div className="hero-icon">{icon(current.weatherCode)}</div>

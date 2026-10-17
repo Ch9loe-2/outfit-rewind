@@ -3,17 +3,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import { db } from '../lib/db'
 import { ensureWeather } from '../lib/archive'
 import { importFiles } from '../lib/importer'
-import type { ImportProgress } from '../lib/importer'
+import type { ImportProgress, ImportResult } from '../lib/importer'
 import { resolvePlace } from '../lib/places'
 import { useSettings } from '../lib/settings'
 
 type Phase = 'idle' | 'running' | 'done'
-
-interface Result {
-  imported: number
-  days: number
-  skipped: number
-}
 
 export default function ImportPage() {
   const { settings } = useSettings()
@@ -22,7 +16,7 @@ export default function ImportPage() {
   const pickerRef = useRef<HTMLInputElement>(null)
   const [phase, setPhase] = useState<Phase>('idle')
   const [progress, setProgress] = useState<ImportProgress | null>(null)
-  const [result, setResult] = useState<Result | null>(null)
+  const [result, setResult] = useState<ImportResult | null>(null)
   const [weatherNote, setWeatherNote] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -159,10 +153,36 @@ export default function ImportPage() {
                 <span>{result.days} 天</span>
               </li>
               <li>
+                <span>拍摄时间</span>
+                <span>
+                  EXIF {result.exifTime} · 文件时间 {result.mtime}
+                </span>
+              </li>
+              <li>
+                <span>带 GPS</span>
+                <span>
+                  {result.gps} 张（{result.imported ? Math.round((result.gps / result.imported) * 100) : 0}%）
+                </span>
+              </li>
+              <li>
+                <span>年份</span>
+                <span>{result.years.length ? result.years.join(' / ') : '—'}</span>
+              </li>
+              <li>
                 <span>跳过</span>
                 <span>{result.skipped} 张</span>
               </li>
             </ul>
+            {result.mtime > result.exifTime ? (
+              <p className="muted small">
+                大部分照片没有拍摄时间，只能退回文件时间——通常是被微信/相册转存过。这会让日期失真，建议用原始照片。
+              </p>
+            ) : null}
+            {result.gps / Math.max(1, result.imported) < 0.5 ? (
+              <p className="muted small">
+                过半照片没有 GPS，会按默认城市取天气。搬过家就去「设置 → 给某一年指定城市」补一下。
+              </p>
+            ) : null}
             {weatherNote ? <p className="muted small">{weatherNote}</p> : null}
             <div className="actions">
               <Link className="btn" to="/rewind">

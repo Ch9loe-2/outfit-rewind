@@ -30,12 +30,26 @@ interface ExifShape {
   DateTimeOriginal?: Date
   CreateDate?: Date
   ModifyDate?: Date
-  GPSLatitude?: number
-  GPSLongitude?: number
+  latitude?: number
+  longitude?: number
+  GPSLatitude?: number | number[]
+  GPSLongitude?: number | number[]
+  GPSLatitudeRef?: string
+  GPSLongitudeRef?: string
   ExifImageWidth?: number
   ExifImageHeight?: number
   ImageWidth?: number
   ImageHeight?: number
+}
+
+/** exifr 给出的可能是十进制，也可能是 [度, 分, 秒] */
+function toDecimal(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (Array.isArray(value) && value.length === 3) {
+    const [d, m, s] = value.map((item) => Number(item))
+    if ([d, m, s].every((item) => Number.isFinite(item))) return d + m / 60 + s / 3600
+  }
+  return undefined
 }
 
 export async function readPhotoMeta(file: File): Promise<PhotoMeta> {
@@ -46,8 +60,12 @@ export async function readPhotoMeta(file: File): Promise<PhotoMeta> {
         'DateTimeOriginal',
         'CreateDate',
         'ModifyDate',
+        'latitude',
+        'longitude',
         'GPSLatitude',
         'GPSLongitude',
+        'GPSLatitudeRef',
+        'GPSLongitudeRef',
         'ExifImageWidth',
         'ExifImageHeight',
         'ImageWidth',
@@ -62,19 +80,25 @@ export async function readPhotoMeta(file: File): Promise<PhotoMeta> {
   const taken = exif && (exif.DateTimeOriginal || exif.CreateDate || exif.ModifyDate)
   const takenAt = taken ? new Date(taken).getTime() : Math.min(file.lastModified || Date.now(), Date.now())
 
+  let lat = exif ? toDecimal(exif.latitude) ?? toDecimal(exif.GPSLatitude) : undefined
+  let lon = exif ? toDecimal(exif.longitude) ?? toDecimal(exif.GPSLongitude) : undefined
+
+  if (typeof lat === 'number' && exif?.GPSLatitudeRef === 'S') lat = -Math.abs(lat)
+  if (typeof lon === 'number' && exif?.GPSLongitudeRef === 'W') lon = -Math.abs(lon)
+
   const hasGps =
-    exif &&
-    typeof exif.GPSLatitude === 'number' &&
-    typeof exif.GPSLongitude === 'number' &&
-    Number.isFinite(exif.GPSLatitude) &&
-    Number.isFinite(exif.GPSLongitude)
+    typeof lat === 'number' &&
+    typeof lon === 'number' &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lon) &&
+    !(lat === 0 && lon === 0)
 
   return {
     id: hashId(file),
     takenAt,
     takenAtSource: taken ? 'exif' : 'mtime',
-    lat: hasGps ? (exif!.GPSLatitude as number) : undefined,
-    lon: hasGps ? (exif!.GPSLongitude as number) : undefined,
+    lat: hasGps ? lat : undefined,
+    lon: hasGps ? lon : undefined,
     geoSource: hasGps ? 'exif' : 'none',
     width: (exif && (exif.ExifImageWidth || exif.ImageWidth)) || 0,
     height: (exif && (exif.ExifImageHeight || exif.ImageHeight)) || 0,

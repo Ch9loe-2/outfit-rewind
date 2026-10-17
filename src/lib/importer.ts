@@ -11,6 +11,16 @@ export interface ImportProgress {
   days: number
 }
 
+export interface ImportResult {
+  imported: number
+  days: number
+  skipped: number
+  exifTime: number
+  mtime: number
+  gps: number
+  years: number[]
+}
+
 const CHUNK = 24
 
 function yieldToUi(): Promise<void> {
@@ -21,7 +31,7 @@ export async function importFiles(
   files: File[],
   source: 'folder' | 'picker',
   onProgress: (p: ImportProgress) => void,
-): Promise<{ imported: number; days: number; skipped: number }> {
+): Promise<ImportResult> {
   const images = files.filter(isImage)
   const progress: ImportProgress = { total: images.length, scanned: 0, accepted: 0, skipped: 0, days: 0 }
   onProgress({ ...progress })
@@ -32,6 +42,10 @@ export async function importFiles(
   let pendingThumbs: Array<{ id: string; blob: Blob }> = []
   let imported = 0
   let skipped = 0
+  let exifTime = 0
+  let mtime = 0
+  let gps = 0
+  const years = new Set<number>()
 
   async function flush(): Promise<void> {
     if (!pending.length) return
@@ -62,6 +76,10 @@ export async function importFiles(
       const row = toPhotoRow(meta, dayKey, importedAt, source)
       pending.push(row)
       touched.add(dayKey)
+      if (meta.takenAtSource === 'exif') exifTime += 1
+      else mtime += 1
+      if (meta.geoSource === 'exif') gps += 1
+      years.add(Number(dayKey.slice(0, 4)))
 
       const thumb = await makeThumb(file)
       if (thumb) pendingThumbs.push({ id: meta.id, blob: thumb })
@@ -85,7 +103,15 @@ export async function importFiles(
   const days = await rebuildDays(Array.from(touched))
   progress.days = days
   onProgress({ ...progress })
-  return { imported, days, skipped }
+  return {
+    imported,
+    days,
+    skipped,
+    exifTime,
+    mtime,
+    gps,
+    years: Array.from(years).sort((a, b) => a - b),
+  }
 }
 
 export async function rebuildDays(dateKeys: string[]): Promise<number> {
