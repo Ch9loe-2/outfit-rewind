@@ -31,6 +31,8 @@ export default function Rewind() {
   const [threshold, setThreshold] = useState(settings.matchThreshold)
   const [view, setView] = useState<'score' | 'time'>('score')
   const [onlyFav, setOnlyFav] = useState(false)
+  const [votes, setVotes] = useState<Record<string, 1 | -1>>({})
+  const [unvotedFirst, setUnvotedFirst] = useState(false)
   const autoSynced = useRef(false)
 
   const load = useCallback(async () => {
@@ -44,7 +46,12 @@ export default function Rewind() {
       return a.day.date < b.day.date ? 1 : -1
     })
 
+    const feedback = await db.feedback.toArray()
+    const map: Record<string, 1 | -1> = {}
+    for (const item of feedback) map[item.date] = item.vote
+
     setRows(next)
+    setVotes(map)
     setLoading(false)
   }, [settings])
 
@@ -84,8 +91,13 @@ export default function Rewind() {
     if (view === 'time') {
       return list.slice().sort((a, b) => (a.day.date < b.day.date ? 1 : -1))
     }
+    if (unvotedFirst) {
+      return list
+        .slice()
+        .sort((a, b) => Number(Boolean(votes[a.day.date])) - Number(Boolean(votes[b.day.date])))
+    }
     return list
-  }, [rows, year, threshold, onlyFav, view])
+  }, [rows, year, threshold, onlyFav, view, unvotedFirst, votes])
 
   // 注意：所有 hook 必须在这之前调用（下面有两个提前 return）
   const groups = useMemo(() => {
@@ -147,32 +159,70 @@ export default function Rewind() {
 
   const favCount = rows.filter((row) => row.day.favorite === 1).length
 
-  function renderRow({ day, weather, result }: Row) {
+  async function vote(row: Row, value: 1 | -1) {
+    const score = row.result?.score ?? 0
+    const next = votes[row.day.date] === value ? null : value
+
+    if (next === null) {
+      await db.feedback.delete(row.day.date)
+      setVotes((prev) => {
+        const copy = { ...prev }
+        delete copy[row.day.date]
+        return copy
+      })
+      return
+    }
+
+    await db.feedback.put({ date: row.day.date, vote: next, score, at: Date.now() })
+    setVotes((prev) => ({ ...prev, [row.day.date]: next }))
+  }
+
+  function renderRow(row: Row) {
+    const { day, weather, result } = row
+    const myVote = votes[day.date]
     return (
-      <Link className="list-row" key={day.date} to={'/day/' + day.date}>
-        <Thumb id={day.heroPhotoId} />
-        <div className="list-body">
-          <div className="list-title">
-            <span>
-              {day.date}
-              {day.favorite === 1 ? <span className="fav-mark">♥</span> : null}
-            </span>
-            <span className="muted small">{day.photoCount} 张</span>
+      <div className="list-row-wrap" key={day.date}>
+        <Link className="list-row" to={'/day/' + day.date}>
+          <Thumb id={day.heroPhotoId} />
+          <div className="list-body">
+            <div className="list-title">
+              <span>
+                {day.date}
+                {day.favorite === 1 ? <span className="fav-mark">♥</span> : null}
+              </span>
+              <span className="muted small">{day.photoCount} 张</span>
+            </div>
+            <div className="muted small">
+              {weather
+                ? icon(weather.weatherCode) + ' ' + describe(weather.weatherCode) + ' · ' + Math.round(weather.tMin) + '~' + Math.round(weather.tMax) + '° · 风 ' + windLevel(weather.windMax) + ' 级'
+                : '天气待补齐'}
+            </div>
           </div>
-          <div className="muted small">
-            {weather
-              ? icon(weather.weatherCode) + ' ' + describe(weather.weatherCode) + ' · ' + Math.round(weather.tMin) + '~' + Math.round(weather.tMax) + '° · 风 ' + windLevel(weather.windMax) + ' 级'
-              : '天气待补齐'}
-          </div>
+          {view === 'score' ? (
+            result ? (
+              <span className={result.score >= 80 ? 'score score-high' : 'score'}>{result.score}</span>
+            ) : (
+              <span className="score score-empty">—</span>
+            )
+          ) : null}
+        </Link>
+        <div className="row-vote">
+          <button
+            className={myVote === 1 ? 'vote-btn vote-up-active' : 'vote-btn'}
+            aria-label={'觉得像：' + day.date}
+            onClick={() => void vote(row, 1)}
+          >
+            👍
+          </button>
+          <button
+            className={myVote === -1 ? 'vote-btn vote-down-active' : 'vote-btn'}
+            aria-label={'觉得不像：' + day.date}
+            onClick={() => void vote(row, -1)}
+          >
+            👎
+          </button>
         </div>
-        {view === 'score' ? (
-          result ? (
-            <span className={result.score >= 80 ? 'score score-high' : 'score'}>{result.score}</span>
-          ) : (
-            <span className="score score-empty">—</span>
-          )
-        ) : null}
-      </Link>
+      </div>
     )
   }
 
@@ -182,7 +232,7 @@ export default function Rewind() {
         <div>
           <div className="place">回忆</div>
           <div className="date">
-            {rows.length} 个穿搭日 · {favCount} 个收藏
+            {rows.length} 个穿搭日 · {favCount} 个收藏 · 已标注 {Object.keys(votes).length}
           </div>
         </div>
         <Link className="icon-btn" to="/import" aria-label="导入">＋</Link>
@@ -228,6 +278,15 @@ export default function Rewind() {
         >
           {onlyFav ? '♥ 只看收藏' : '♡ 只看收藏'}
         </button>
+        {view === 'score' ? (
+          <button
+            className={unvotedFirst ? 'chip chip-active' : 'chip'}
+            onClick={() => setUnvotedFirst((prev) => !prev)}
+            title="把还没标注的排前面，方便补标"
+          >
+            未标注优先
+          </button>
+        ) : null}
       </div>
 
       {missing > 0 ? (
