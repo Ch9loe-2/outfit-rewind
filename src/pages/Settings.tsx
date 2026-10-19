@@ -6,6 +6,7 @@ import { clearAll, db, estimatedUsage } from '../lib/db'
 import { rebuildDays } from '../lib/importer'
 import { exportBackup, importBackup } from '../lib/backup'
 import { overlaps } from '../lib/places'
+import { downloadCsv, votesToCsv } from '../lib/votes'
 import type { Period } from '../lib/types'
 
 const START_YEAR = 2015
@@ -102,6 +103,20 @@ export default function SettingsPage() {
     } finally {
       setBusy(null)
     }
+  }
+
+  async function handleExportVotes() {
+    const votes = await db.feedback.toArray()
+    if (!votes.length) {
+      setBackupNote('还没有标注，先去回忆页点几个 👍 / 👎')
+      return
+    }
+    downloadCsv('outfit-rewind-votes.csv', votesToCsv(votes))
+    const missing = votes.filter((vote) => !vote.deltas).length
+    setBackupNote(
+      '已导出 ' + votes.length + ' 条标注（纯数字，不含照片和地点）' +
+        (missing ? '；其中 ' + missing + ' 条是旧记录、没有差值，重新点一次就能补上' : ''),
+    )
   }
 
   async function handleImport(file: File) {
@@ -352,6 +367,9 @@ export default function SettingsPage() {
           </button>
           <button className="btn btn-ghost" disabled={Boolean(busy)} onClick={() => importRef.current?.click()}>
             导入备份
+          </button>
+          <button className="btn btn-ghost" onClick={() => void handleExportVotes()}>
+            导出标注
           </button>
           <input
             ref={importRef}

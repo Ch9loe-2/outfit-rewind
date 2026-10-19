@@ -6,6 +6,7 @@ import { ensureWeather } from '../lib/archive'
 import { readLastWeather } from '../lib/lastWeather'
 import { placeOf } from '../lib/places'
 import { buildMatches } from '../lib/matches'
+import { deltasOf } from '../lib/similarity'
 import type { MatchResult } from '../lib/similarity'
 import { useSettings } from '../lib/settings'
 import { useThumb } from '../lib/useThumb'
@@ -173,7 +174,13 @@ export default function Rewind() {
       return
     }
 
-    await db.feedback.put({ date: row.day.date, vote: next, score, at: Date.now() })
+    await db.feedback.put({
+      date: row.day.date,
+      vote: next,
+      score,
+      deltas: row.result ? deltasOf(row.result) : undefined,
+      at: Date.now(),
+    })
     setVotes((prev) => ({ ...prev, [row.day.date]: next }))
   }
 

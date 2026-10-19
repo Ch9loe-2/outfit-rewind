@@ -64,6 +64,8 @@ export interface FeedbackRow {
   vote: 1 | -1
   /** 打分当时的相似度，便于事后分析 */
   score: number
+  /** 投票那一刻的六维归一化差值，用于离线拟合权重 */
+  deltas?: Record<string, number>
   at: number
 }
 

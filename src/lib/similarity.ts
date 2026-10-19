@@ -88,6 +88,15 @@ export interface MatchResult {
   confidence: number
 }
 
+/** 投票时把六维差值一起存下来，之后不用回看天气也能拟合权重 */
+export function deltasOf(result: MatchResult): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const part of result.parts) {
+    out[part.key] = Math.round(part.delta * 1000) / 1000
+  }
+  return out
+}
+
 export function match(today: Feature, other: Feature): MatchResult {
   let weighted = 0
   let total = 0

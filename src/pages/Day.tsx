@@ -6,7 +6,7 @@ import type { DailyWeather } from '../lib/types'
 import { humanDate, weekdayOf } from '../lib/dates'
 import { readLastWeather } from '../lib/lastWeather'
 import { locKeyOf } from '../lib/archive'
-import { match, toFeature, todayInput } from '../lib/similarity'
+import { deltasOf, match, toFeature, todayInput } from '../lib/similarity'
 import { useSettings } from '../lib/settings'
 import { resolvePlace } from '../lib/places'
 import { useThumb } from '../lib/useThumb'
@@ -234,6 +234,7 @@ export default function Day() {
                     date: day.date,
                     vote: item.vote,
                     score: result.score,
+                    deltas: deltasOf(result),
                     at: Date.now(),
                   }
                   await db.feedback.put(row)
