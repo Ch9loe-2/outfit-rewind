@@ -12,6 +12,7 @@ import { resolvePlace } from '../lib/places'
 import { useThumb } from '../lib/useThumb'
 import { describe, icon, windLevel } from '../lib/weather'
 import { deleteDay, moveDay } from '../lib/edit'
+import type { FeedbackRow } from '../lib/db'
 
 function PhotoThumb({ id, active, onSelect }: { id: string; active: boolean; onSelect: (id: string) => void }) {
   const url = useThumb(id)
@@ -35,6 +36,7 @@ export default function Day() {
   const [fav, setFav] = useState(false)
   const [moveTo, setMoveTo] = useState('')
   const [editing, setEditing] = useState(false)
+  const [feedback, setFeedback] = useState<FeedbackRow | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -50,6 +52,8 @@ export default function Day() {
       setDay(row)
       setFav(row.favorite === 1)
       setHero(row.heroPhotoId)
+      const vote = await db.feedback.get(row.date)
+      if (alive) setFeedback(vote ?? null)
       const list = await db.photos.bulkGet(row.photoIds)
       if (!alive) return
       setPhotos((list.filter(Boolean) as PhotoRow[]).sort((a, b) => a.takenAt - b.takenAt))
@@ -206,6 +210,54 @@ export default function Day() {
           <p className="muted small">支持改日期、删掉误导入的一天。</p>
         )}
       </section>
+
+      {result ? (
+        <section className="card">
+          <header className="card-head">
+            <h2>这套像吗</h2>
+            {feedback ? <span className="pill pill-soft">已记录</span> : null}
+          </header>
+          <p className="muted small">
+            只记录你的判断，暂时不影响排序。攒够几十条后，我用它来拟合权重，替掉现在这套拍脑袋的。
+          </p>
+          <div className="actions">
+            {[
+              { vote: 1 as const, label: '👍 像', text: '像' },
+              { vote: -1 as const, label: '👎 不像', text: '不像' },
+            ].map((item) => (
+              <button
+                key={item.vote}
+                className={feedback?.vote === item.vote ? 'chip chip-active' : 'chip'}
+                onClick={async () => {
+                  if (!day) return
+                  const row: FeedbackRow = {
+                    date: day.date,
+                    vote: item.vote,
+                    score: result.score,
+                    at: Date.now(),
+                  }
+                  await db.feedback.put(row)
+                  setFeedback(row)
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
+            {feedback ? (
+              <button
+                className="link-btn"
+                onClick={async () => {
+                  if (!day) return
+                  await db.feedback.delete(day.date)
+                  setFeedback(null)
+                }}
+              >
+                撤销
+              </button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       {result ? (
         <section className="card">

@@ -26,6 +26,20 @@ describe('similarity.match', () => {
     expect(far.score).toBeLessThan(60)
   })
 
+  it('体感差 6°C 大约 63 分（权重 0.50 的校准点）', () => {
+    const result = match(toFeature(base), toFeature({ ...base, feelsMax: 29, feelsMin: 21 }))
+    expect(result.score).toBeGreaterThanOrEqual(60)
+    expect(result.score).toBeLessThanOrEqual(66)
+  })
+
+  it('体感的影响明显大于湿度', () => {
+    const tempOff = match(toFeature(base), toFeature({ ...base, feelsMax: 29, feelsMin: 21 }))
+    const humidityOff = match(toFeature(base), toFeature({ ...base, humidityMean: 85 }))
+    expect(tempOff.score).toBeLessThan(humidityOff.score)
+    // 湿度是体感公式里的组成部分，只做补充，不该和温度同等份量
+    expect(humidityOff.score).toBeGreaterThan(85)
+  })
+
   it('缺 UV / 湿度时自动降权并降置信度', () => {
     const partial = match(
       toFeature({ ...base, humidityMean: null, uvMax: null }),

@@ -57,12 +57,23 @@ export interface MetaRow {
   v: string
 }
 
+/** 用户对「这天和今天像不像」的标注，将来用来拟合权重 */
+export interface FeedbackRow {
+  date: string
+  /** 1 = 像，-1 = 不像 */
+  vote: 1 | -1
+  /** 打分当时的相似度，便于事后分析 */
+  score: number
+  at: number
+}
+
 class RewindDB extends Dexie {
   photos!: Table<PhotoRow, string>
   days!: Table<DayRow, string>
   weather!: Table<WeatherRow, string>
   thumbs!: Table<{ id: string; blob: Blob }, string>
   meta!: Table<MetaRow, string>
+  feedback!: Table<FeedbackRow, string>
 
   constructor() {
     super('outfit-rewind')
@@ -79,6 +90,14 @@ class RewindDB extends Dexie {
       weather: 'key, locYear',
       thumbs: 'id',
       meta: 'k',
+    })
+    this.version(3).stores({
+      photos: 'id, dayKey, takenAt',
+      days: 'date, year, month, favorite',
+      weather: 'key, locYear',
+      thumbs: 'id',
+      meta: 'k',
+      feedback: 'date, vote',
     })
   }
 }

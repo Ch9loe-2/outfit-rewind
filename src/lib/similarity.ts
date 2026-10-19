@@ -27,13 +27,17 @@ const SCALE: Record<string, number> = {
   uv: 6,
 }
 
+/**
+ * 体感坐到 0.50：风、湿度本来就已算进 apparent_temperature，
+ * 单列只是补充，不该和体感平起平坐。
+ */
 const WEIGHT: Record<string, number> = {
-  feelsMean: 0.35,
+  feelsMean: 0.5,
   tempRange: 0.15,
   precip: 0.2,
-  windMax: 0.12,
-  humidity: 0.1,
-  uv: 0.08,
+  windMax: 0.08,
+  humidity: 0.05,
+  uv: 0.02,
 }
 
 export const DIM_LABEL: Record<string, string> = {

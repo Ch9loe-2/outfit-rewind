@@ -139,7 +139,7 @@ export default function Rewind() {
         </section>
         <section className="card">
           <h2>怎么算「像」</h2>
-          <p className="muted small">体感 35% · 温差 15% · 降水 20% · 风 12% · 湿度 10% · 紫外线 8%</p>
+          <p className="muted small">体感 50% · 温差 15% · 降水 20% · 风 8% · 湿度 5% · 紫外线 2%</p>
         </section>
       </div>
     )

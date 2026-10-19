@@ -1,5 +1,5 @@
 import { db } from './db'
-import type { DayRow, PhotoRow, WeatherRow } from './db'
+import type { DayRow, FeedbackRow, PhotoRow, WeatherRow } from './db'
 import { createZip, readZip } from './zip'
 import type { ZipEntry } from './zip'
 
@@ -14,6 +14,7 @@ interface Manifest {
   days: DayRow[]
   photos: PhotoRow[]
   weather: WeatherRow[]
+  feedback?: FeedbackRow[]
 }
 
 export interface BackupStats {
@@ -21,15 +22,17 @@ export interface BackupStats {
   photos: number
   weather: number
   thumbs: number
+  feedback: number
   bytes: number
 }
 
 export async function exportBackup(includeThumbs = true): Promise<{ blob: Blob; stats: BackupStats }> {
-  const [days, photos, weather, thumbs] = await Promise.all([
+  const [days, photos, weather, thumbs, feedback] = await Promise.all([
     db.days.toArray(),
     db.photos.toArray(),
     db.weather.toArray(),
     includeThumbs ? db.thumbs.toArray() : Promise.resolve([]),
+    db.feedback.toArray(),
   ])
 
   const manifest: Manifest = {
@@ -39,6 +42,7 @@ export async function exportBackup(includeThumbs = true): Promise<{ blob: Blob; 
     days,
     photos,
     weather,
+    feedback,
   }
 
   const entries: ZipEntry[] = [
@@ -54,7 +58,14 @@ export async function exportBackup(includeThumbs = true): Promise<{ blob: Blob; 
   const blob = new Blob([bytes], { type: 'application/zip' })
   return {
     blob,
-    stats: { days: days.length, photos: photos.length, weather: weather.length, thumbs: thumbs.length, bytes: bytes.length },
+    stats: {
+      days: days.length,
+      photos: photos.length,
+      weather: weather.length,
+      thumbs: thumbs.length,
+      feedback: feedback.length,
+      bytes: bytes.length,
+    },
   }
 }
 
@@ -87,11 +98,12 @@ export async function importBackup(file: File): Promise<ImportResult> {
   const existingThumbs = await db.thumbs.bulkGet(thumbRows.map((row) => row.id))
   const newThumbs = thumbRows.filter((_, index) => !existingThumbs[index])
 
-  await db.transaction('rw', db.photos, db.days, db.weather, db.thumbs, async () => {
+  await db.transaction('rw', db.photos, db.days, db.weather, db.thumbs, db.feedback, async () => {
     if (newPhotos.length) await db.photos.bulkPut(newPhotos)
     if (newThumbs.length) await db.thumbs.bulkPut(newThumbs)
     if (manifest.days.length) await db.days.bulkPut(manifest.days)
     if (manifest.weather.length) await db.weather.bulkPut(manifest.weather)
+    if (manifest.feedback?.length) await db.feedback.bulkPut(manifest.feedback)
   })
 
   if (manifest.settings) localStorage.setItem(SETTINGS_KEY, manifest.settings)

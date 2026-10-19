@@ -28,6 +28,7 @@ export default function SettingsPage() {
     mtime: number
     gps: number
     years: number[]
+    feedback: { count: number; like: number; dislike: number }
     gaps: Array<{ year: number; total: number; none: number; imputed: number }>
   } | null>(null)
   const [rebuilding, setRebuilding] = useState(false)
@@ -64,12 +65,18 @@ export default function SettingsPage() {
       .map(([year, v]) => ({ year, ...v }))
       .sort((a, b) => b.year - a.year)
 
+    const votes = await db.feedback.toArray()
     setDiag({
       exif: photos.filter((p) => p.takenAtSource === 'exif').length,
       mtime: photos.filter((p) => p.takenAtSource !== 'exif').length,
       gps: photos.filter((p) => p.geoSource === 'exif').length,
       years,
       gaps,
+      feedback: {
+        count: votes.length,
+        like: votes.filter((v) => v.vote === 1).length,
+        dislike: votes.filter((v) => v.vote === -1).length,
+      },
     })
   }
 
@@ -311,6 +318,16 @@ export default function SettingsPage() {
           <li>
             <span>覆盖年份</span>
             <span>{diag && diag.years.length ? diag.years[0] + '–' + diag.years[diag.years.length - 1] : '—'}</span>
+          </li>
+          <li>
+            <span>像 / 不像 标注</span>
+            <span>
+              {diag
+                ? diag.feedback.count
+                  ? diag.feedback.count + ' 天（👍 ' + diag.feedback.like + ' · 👎 ' + diag.feedback.dislike + '）'
+                  : '还没标注'
+                : '—'}
+            </span>
           </li>
         </ul>
         {diag && diag.gaps.some((g) => g.none > 0) ? (
