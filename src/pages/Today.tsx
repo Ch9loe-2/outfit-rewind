@@ -4,7 +4,7 @@ import Metric from '../components/Metric'
 import OutfitCard from '../components/OutfitCard'
 import { advise } from '../lib/outfit'
 import { currentPosition } from '../lib/location'
-import { saveLastWeather } from '../lib/lastWeather'
+import { readBundle, saveBundle, saveLastWeather } from '../lib/lastWeather'
 import { db } from '../lib/db'
 import { buildMatches } from '../lib/matches'
 import type { MatchRow } from '../lib/matches'
@@ -112,8 +112,19 @@ export default function Today() {
       const data = await fetchWeather(lat, lon)
       setWeather(data)
       saveLastWeather(data.daily)
+      saveBundle(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '天气加载失败')
+      // 断网时退回上次成功拿到的天气，并明确标注是缓存
+      const cached = readBundle()
+      if (cached) {
+        setWeather(cached.bundle)
+        const time = new Date(cached.savedAt)
+        const stamp = time.getMonth() + 1 + '/' + time.getDate() + ' ' + String(time.getHours()).padStart(2, '0') + ':' + String(time.getMinutes()).padStart(2, '0')
+        setNotice('离线，显示 ' + stamp + ' 的缓存')
+      } else {
+        const message = err instanceof Error ? err.message : '天气加载失败'
+        setError(message === 'Failed to fetch' ? '网络不可用，且还没有缓存过天气' : message)
+      }
     } finally {
       setLoading(false)
     }
@@ -167,7 +178,7 @@ export default function Today() {
 
       {notice ? (
         <div className="banner">
-          <span>{notice}，当前显示「{placeName}」</span>
+          <span>{notice.startsWith('离线') ? notice : notice + '，当前显示「' + placeName + '」'}</span>
           <Link className="link-btn" to="/settings">手动选城市</Link>
         </div>
       ) : null}

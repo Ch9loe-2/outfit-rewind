@@ -5,6 +5,15 @@ import App from './App'
 import { SettingsProvider } from './lib/settings'
 import './styles.css'
 
+// 生产环境注册 Service Worker：断网也能打开
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch((error) => {
+      console.warn('[outfit-rewind] Service Worker 注册失败', error)
+    })
+  })
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <HashRouter>

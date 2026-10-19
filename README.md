@@ -56,13 +56,26 @@
 
 ## 部署
 
-站点走 `gh-pages` 分支，一条命令：
+产物是纯静态文件，两条路都行。
+
+**GitHub Pages（当前线上）**
 
     ./scripts/deploy.sh
 
-首次使用需要在仓库 **Settings → Pages → Source** 里选择 **Deploy from a branch**，分支 `gh-pages`、目录 `/`。
+首次需要在仓库 **Settings → Pages → Source** 选择 **Deploy from a branch**，分支 `gh-pages`、目录 `/`。
 
-> 想改成 push 自动部署（GitHub Actions）也可以，但需要 token 带 `workflow` 权限，当前凭据没有。
+**Cloudflare Pages（国内访问更稳）**
+
+    npx wrangler login          # 只需一次
+    ./scripts/deploy-cf.sh
+
+也可以把仓库连到 Cloudflare Pages 后台：构建命令 `pnpm build`，输出目录 `dist`（`wrangler.toml` 里已写好）。
+
+> 构建用的是相对路径（`base: './'`），所以同一个产物既能挂在 `/outfit-rewind/` 下，也能挂在域名根目录。
+
+**离线**
+
+构建时会把 14 个静态文件写进 Service Worker：装到桌面后断网也能打开，首页会显示上次缓存的天气并标注「离线」。天气接口、城市搜索这类网络请求照常走网络。
 
 ## 相似度怎么算
 
