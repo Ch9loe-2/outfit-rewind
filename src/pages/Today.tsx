@@ -33,7 +33,7 @@ function todayLabel(): string {
 }
 
 export default function Today() {
-  const { settings } = useSettings()
+  const { settings, update } = useSettings()
   const [weather, setWeather] = useState<WeatherBundle | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -42,9 +42,19 @@ export default function Today() {
   const [days, setDays] = useState(0)
   const [top, setTop] = useState<MatchRow[]>([])
   const [showWechatTip, setShowWechatTip] = useState(false)
+  const [geoPermission, setGeoPermission] = useState<'granted' | 'denied' | 'prompt' | 'unknown'>('unknown')
 
   useEffect(() => {
     db.days.count().then(setDays).catch(() => setDays(0))
+    if (navigator.permissions?.query) {
+      navigator.permissions
+        .query({ name: 'geolocation' as PermissionName })
+        .then((status) => {
+          setGeoPermission(status.state as 'granted' | 'denied' | 'prompt')
+          status.onchange = () => setGeoPermission(status.state as 'granted' | 'denied' | 'prompt')
+        })
+        .catch(() => setGeoPermission('unknown'))
+    }
     const inWechat = /MicroMessenger/i.test(navigator.userAgent)
     const dismissed = localStorage.getItem('outfit-rewind:wechat-tip') === '1'
     setShowWechatTip(inWechat && !dismissed)
@@ -179,7 +189,27 @@ export default function Today() {
       {notice ? (
         <div className="banner">
           <span>{notice.startsWith('离线') ? notice : notice + '，当前显示「' + placeName + '」'}</span>
-          <Link className="link-btn" to="/settings">手动选城市</Link>
+          {settings.mode === 'auto' ? (
+            <button className="link-btn" onClick={() => void load()}>
+              重试定位
+            </button>
+          ) : (
+            <Link className="link-btn" to="/settings">手动选城市</Link>
+          )}
+        </div>
+      ) : null}
+
+      {settings.mode === 'fixed' && geoPermission === 'granted' ? (
+        <div className="banner">
+          <span>浏览器已授权定位，但当前用的是手动城市「{placeName}」</span>
+          <button
+            className="link-btn"
+            onClick={() => {
+              update({ mode: 'auto' })
+            }}
+          >
+            用定位
+          </button>
         </div>
       ) : null}
 
