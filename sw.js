@@ -1,14 +1,14 @@
 /* 由 scripts/build-sw.mjs 生成，请勿手改 */
-const CACHE = 'outfit-rewind-f36d01644506'
+const CACHE = 'outfit-rewind-0f9a57006931'
 const ASSETS = [
-  "assets/Day-BT_maaxR.js",
-  "assets/Import-JRA7r_mL.js",
-  "assets/Settings-CXFEqCBC.js",
+  "assets/Day-C0qip0fI.js",
+  "assets/Import-DBacZyfb.js",
+  "assets/Settings-DxOvJlu6.js",
   "assets/full.esm-DoFl4RTa.js",
-  "assets/heic2any-DcAyGuPE.js",
-  "assets/importer-ZeScZjmJ.js",
+  "assets/heic2any-ZP5CVD97.js",
+  "assets/importer-sLdIYMSE.js",
   "assets/index-Wh1-yL4a.css",
-  "assets/index-kGwmABTh.js",
+  "assets/index-xPKdSFn2.js",
   "favicon.svg",
   "icons/icon-192.png",
   "icons/icon-512.png",
