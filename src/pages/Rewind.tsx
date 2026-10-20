@@ -6,6 +6,8 @@ import { ensureWeather } from '../lib/archive'
 import { readLastWeather } from '../lib/lastWeather'
 import { placeOf } from '../lib/places'
 import { buildMatches } from '../lib/matches'
+import { clearVote, loadVotes, setVote } from '../lib/votes'
+import { todayKey } from '../lib/dates'
 import { deltasOf } from '../lib/similarity'
 import type { MatchResult } from '../lib/similarity'
 import { useSettings } from '../lib/settings'
@@ -47,12 +49,8 @@ export default function Rewind() {
       return a.day.date < b.day.date ? 1 : -1
     })
 
-    const feedback = await db.feedback.toArray()
-    const map: Record<string, 1 | -1> = {}
-    for (const item of feedback) map[item.date] = item.vote
-
     setRows(next)
-    setVotes(map)
+    setVotes(await loadVotes())
     setLoading(false)
   }, [settings])
 
@@ -159,13 +157,14 @@ export default function Rewind() {
   }
 
   const favCount = rows.filter((row) => row.day.favorite === 1).length
+  const baseline = todayKey()
 
   async function vote(row: Row, value: 1 | -1) {
     const score = row.result?.score ?? 0
     const next = votes[row.day.date] === value ? null : value
 
     if (next === null) {
-      await db.feedback.delete(row.day.date)
+      await clearVote(row.day.date, baseline)
       setVotes((prev) => {
         const copy = { ...prev }
         delete copy[row.day.date]
@@ -174,13 +173,7 @@ export default function Rewind() {
       return
     }
 
-    await db.feedback.put({
-      date: row.day.date,
-      vote: next,
-      score,
-      deltas: row.result ? deltasOf(row.result) : undefined,
-      at: Date.now(),
-    })
+    await setVote(row.day.date, baseline, next, score, row.result ? deltasOf(row.result) : undefined)
     setVotes((prev) => ({ ...prev, [row.day.date]: next }))
   }
 
@@ -239,7 +232,7 @@ export default function Rewind() {
         <div>
           <div className="place">回忆</div>
           <div className="date">
-            {rows.length} 个穿搭日 · {favCount} 个收藏 · 已标注 {Object.keys(votes).length}
+            {rows.length} 个穿搭日 · {favCount} 个收藏 · 今天已标 {Object.keys(votes).length}
           </div>
         </div>
         <Link className="icon-btn" to="/import" aria-label="导入">＋</Link>

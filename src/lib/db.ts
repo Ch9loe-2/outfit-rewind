@@ -69,6 +69,26 @@ export interface FeedbackRow {
   at: number
 }
 
+/**
+ * 标注是「历史那天 vs 基准日」这一对比较的判断，所以必须带基准日。
+ * 昨天给某天点的赞，今天基准变了就不该再亮着。
+ */
+export interface VoteRow {
+  /** date|baseline */
+  id: string
+  date: string
+  /** 比较的基准日（通常是当天） */
+  baseline: string
+  vote: 1 | -1
+  score: number
+  deltas?: Record<string, number>
+  at: number
+}
+
+export function voteId(date: string, baseline: string): string {
+  return date + '|' + baseline
+}
+
 class RewindDB extends Dexie {
   photos!: Table<PhotoRow, string>
   days!: Table<DayRow, string>
@@ -76,6 +96,7 @@ class RewindDB extends Dexie {
   thumbs!: Table<{ id: string; blob: Blob }, string>
   meta!: Table<MetaRow, string>
   feedback!: Table<FeedbackRow, string>
+  votes!: Table<VoteRow, string>
 
   constructor() {
     super('outfit-rewind')
@@ -100,6 +121,15 @@ class RewindDB extends Dexie {
       thumbs: 'id',
       meta: 'k',
       feedback: 'date, vote',
+    })
+    this.version(4).stores({
+      photos: 'id, dayKey, takenAt',
+      days: 'date, year, month, favorite',
+      weather: 'key, locYear',
+      thumbs: 'id',
+      meta: 'k',
+      feedback: 'date, vote',
+      votes: 'id, date, baseline',
     })
   }
 }

@@ -1,5 +1,5 @@
 import { db } from './db'
-import type { DayRow, FeedbackRow, PhotoRow, WeatherRow } from './db'
+import type { DayRow, FeedbackRow, PhotoRow, VoteRow, WeatherRow } from './db'
 import { createZip, readZip } from './zip'
 import type { ZipEntry } from './zip'
 
@@ -15,6 +15,7 @@ interface Manifest {
   photos: PhotoRow[]
   weather: WeatherRow[]
   feedback?: FeedbackRow[]
+  votes?: VoteRow[]
 }
 
 export interface BackupStats {
@@ -22,17 +23,17 @@ export interface BackupStats {
   photos: number
   weather: number
   thumbs: number
-  feedback: number
+  votes: number
   bytes: number
 }
 
 export async function exportBackup(includeThumbs = true): Promise<{ blob: Blob; stats: BackupStats }> {
-  const [days, photos, weather, thumbs, feedback] = await Promise.all([
+  const [days, photos, weather, thumbs, votes] = await Promise.all([
     db.days.toArray(),
     db.photos.toArray(),
     db.weather.toArray(),
     includeThumbs ? db.thumbs.toArray() : Promise.resolve([]),
-    db.feedback.toArray(),
+    db.votes.toArray(),
   ])
 
   const manifest: Manifest = {
@@ -42,7 +43,7 @@ export async function exportBackup(includeThumbs = true): Promise<{ blob: Blob; 
     days,
     photos,
     weather,
-    feedback,
+    votes,
   }
 
   const entries: ZipEntry[] = [
@@ -63,7 +64,7 @@ export async function exportBackup(includeThumbs = true): Promise<{ blob: Blob; 
       photos: photos.length,
       weather: weather.length,
       thumbs: thumbs.length,
-      feedback: feedback.length,
+      votes: votes.length,
       bytes: bytes.length,
     },
   }
@@ -98,12 +99,12 @@ export async function importBackup(file: File): Promise<ImportResult> {
   const existingThumbs = await db.thumbs.bulkGet(thumbRows.map((row) => row.id))
   const newThumbs = thumbRows.filter((_, index) => !existingThumbs[index])
 
-  await db.transaction('rw', db.photos, db.days, db.weather, db.thumbs, db.feedback, async () => {
+  await db.transaction('rw', db.photos, db.days, db.weather, db.thumbs, db.votes, async () => {
     if (newPhotos.length) await db.photos.bulkPut(newPhotos)
     if (newThumbs.length) await db.thumbs.bulkPut(newThumbs)
     if (manifest.days.length) await db.days.bulkPut(manifest.days)
     if (manifest.weather.length) await db.weather.bulkPut(manifest.weather)
-    if (manifest.feedback?.length) await db.feedback.bulkPut(manifest.feedback)
+    if (manifest.votes?.length) await db.votes.bulkPut(manifest.votes)
   })
 
   if (manifest.settings) localStorage.setItem(SETTINGS_KEY, manifest.settings)

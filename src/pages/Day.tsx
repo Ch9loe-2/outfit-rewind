@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { db } from '../lib/db'
+import { db, voteId } from '../lib/db'
 import type { DayRow, PhotoRow, WeatherRow } from '../lib/db'
 import type { DailyWeather } from '../lib/types'
 import { humanDate, weekdayOf } from '../lib/dates'
@@ -12,7 +12,9 @@ import { resolvePlace } from '../lib/places'
 import { useThumb } from '../lib/useThumb'
 import { describe, icon, windLevel } from '../lib/weather'
 import { deleteDay, moveDay } from '../lib/edit'
+import { clearVote, setVote } from '../lib/votes'
 import type { FeedbackRow } from '../lib/db'
+import { todayKey } from '../lib/dates'
 
 function PhotoThumb({ id, active, onSelect }: { id: string; active: boolean; onSelect: (id: string) => void }) {
   const url = useThumb(id)
@@ -52,7 +54,7 @@ export default function Day() {
       setDay(row)
       setFav(row.favorite === 1)
       setHero(row.heroPhotoId)
-      const vote = await db.feedback.get(row.date)
+      const vote = await db.votes.get(voteId(row.date, todayKey()))
       if (alive) setFeedback(vote ?? null)
       const list = await db.photos.bulkGet(row.photoIds)
       if (!alive) return
@@ -214,11 +216,11 @@ export default function Day() {
       {result ? (
         <section className="card">
           <header className="card-head">
-            <h2>这套像吗</h2>
+            <h2>和今天像吗</h2>
             {feedback ? <span className="pill pill-soft">已记录</span> : null}
           </header>
           <p className="muted small">
-            只记录你的判断，暂时不影响排序。攒够几十条后，我用它来拟合权重，替掉现在这套拍脑袋的。
+            判断的是「这天和今天像不像」，换一天基准就变了，所以标注按天计。只记录、暂不影响排序，攒够几十条后用来拟合权重。
           </p>
           <div className="actions">
             {[
@@ -230,14 +232,13 @@ export default function Day() {
                 className={feedback?.vote === item.vote ? 'chip chip-active' : 'chip'}
                 onClick={async () => {
                   if (!day) return
-                  const row: FeedbackRow = {
-                    date: day.date,
-                    vote: item.vote,
-                    score: result.score,
-                    deltas: deltasOf(result),
-                    at: Date.now(),
-                  }
-                  await db.feedback.put(row)
+                  const row = await setVote(
+                    day.date,
+                    todayKey(),
+                    item.vote,
+                    result.score,
+                    deltasOf(result),
+                  )
                   setFeedback(row)
                 }}
               >
@@ -249,7 +250,7 @@ export default function Day() {
                 className="link-btn"
                 onClick={async () => {
                   if (!day) return
-                  await db.feedback.delete(day.date)
+                  await clearVote(day.date, todayKey())
                   setFeedback(null)
                 }}
               >

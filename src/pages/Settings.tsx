@@ -66,7 +66,7 @@ export default function SettingsPage() {
       .map(([year, v]) => ({ year, ...v }))
       .sort((a, b) => b.year - a.year)
 
-    const votes = await db.feedback.toArray()
+    const votes = await db.votes.toArray()
     setDiag({
       exif: photos.filter((p) => p.takenAtSource === 'exif').length,
       mtime: photos.filter((p) => p.takenAtSource !== 'exif').length,
@@ -106,7 +106,7 @@ export default function SettingsPage() {
   }
 
   async function handleExportVotes() {
-    const votes = await db.feedback.toArray()
+    const votes = await db.votes.toArray()
     if (!votes.length) {
       setBackupNote('还没有标注，先去回忆页点几个 👍 / 👎')
       return
