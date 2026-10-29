@@ -1,0 +1,16 @@
+{
+  "name": "outfit-rewind · 那天你穿了什么",
+  "short_name": "outfit-rewind",
+  "description": "今天穿什么，以及相似天气里你穿过什么。照片不出设备。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f5f1",
+  "theme_color": "#f7f5f1",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "./icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
