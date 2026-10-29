@@ -8,6 +8,8 @@
 
 在线试用：https://ch9loe-2.github.io/outfit-rewind/
 
+> 想改这个项目？先读 [HANDOFF.md](HANDOFF.md)（架构、算法、数据模型、已知坑、验收清单）。
+
 <img src="docs/screenshot-today-mobile.png" width="240" alt="今天" /> <img src="docs/screenshot-rewind.png" width="240" alt="回忆" /> <img src="docs/screenshot-day.png" width="240" alt="那天" />
 
 ## 现在能做什么（v0.9）
